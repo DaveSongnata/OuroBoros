@@ -41,7 +41,10 @@ async function initDB() {
             column_name TEXT NOT NULL DEFAULT 'backlog',
             title TEXT NOT NULL, position INTEGER NOT NULL DEFAULT 0,
             approval_status TEXT NOT NULL DEFAULT 'pending',
-            assigned_approver_id TEXT
+            assigned_approver_id TEXT,
+            due_date TEXT, client TEXT,
+            priority TEXT NOT NULL DEFAULT 'normal',
+            notes TEXT
         );
         CREATE TABLE IF NOT EXISTS products (
             id TEXT PRIMARY KEY, name TEXT NOT NULL, price REAL NOT NULL DEFAULT 0
@@ -58,6 +61,22 @@ async function initDB() {
             id TEXT PRIMARY KEY, project_id TEXT NOT NULL,
             name TEXT NOT NULL, color TEXT NOT NULL DEFAULT 'bg-gray-500',
             position INTEGER NOT NULL DEFAULT 0
+        );
+        CREATE TABLE IF NOT EXISTS card_tags (
+            id TEXT PRIMARY KEY, card_id TEXT NOT NULL, name TEXT NOT NULL
+        );
+        CREATE TABLE IF NOT EXISTS card_assigned_users (
+            id TEXT PRIMARY KEY, card_id TEXT NOT NULL,
+            user_id TEXT NOT NULL, user_email TEXT NOT NULL
+        );
+        CREATE TABLE IF NOT EXISTS card_approvers (
+            id TEXT PRIMARY KEY, card_id TEXT NOT NULL,
+            user_id TEXT NOT NULL, user_email TEXT NOT NULL,
+            status TEXT NOT NULL DEFAULT 'pending', decided_at TEXT
+        );
+        CREATE TABLE IF NOT EXISTS card_sessions (
+            id TEXT PRIMARY KEY, card_id TEXT NOT NULL,
+            name TEXT NOT NULL, position INTEGER NOT NULL DEFAULT 0
         );
         CREATE TABLE IF NOT EXISTS _meta (key TEXT PRIMARY KEY, value TEXT);
     `);
@@ -105,11 +124,13 @@ function upsertRow(table, id, payload) {
             break;
         case 'kanban_cards':
             db.exec({
-                sql: `INSERT OR REPLACE INTO kanban_cards (id, project_id, column_name, title, position, approval_status, assigned_approver_id)
-                      VALUES (?, ?, ?, ?, ?, ?, ?)`,
+                sql: `INSERT OR REPLACE INTO kanban_cards (id, project_id, column_name, title, position, approval_status, assigned_approver_id, due_date, client, priority, notes)
+                      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
                 bind: [payload.id || id, payload.project_id, payload.column_name || 'backlog',
                        payload.title, payload.position || 0,
-                       payload.approval_status || 'pending', payload.assigned_approver_id || null],
+                       payload.approval_status || 'pending', payload.assigned_approver_id || null,
+                       payload.due_date || null, payload.client || null,
+                       payload.priority || 'normal', payload.notes || null],
             });
             break;
         case 'products':
@@ -124,6 +145,15 @@ function upsertRow(table, id, payload) {
                 bind: [payload.uuid || id, payload.short_id, payload.card_id || null,
                        payload.project_id || null, payload.total || 0],
             });
+            // Also insert items if present in payload (backward compat)
+            if (payload.items && Array.isArray(payload.items)) {
+                for (const it of payload.items) {
+                    db.exec({
+                        sql: `INSERT OR REPLACE INTO os_items (id, order_id, product_id, qty) VALUES (?, ?, ?, ?)`,
+                        bind: [it.id, it.order_id || payload.uuid || id, it.product_id, it.qty || 1],
+                    });
+                }
+            }
             break;
         case 'os_items':
             db.exec({
@@ -135,6 +165,31 @@ function upsertRow(table, id, payload) {
             db.exec({
                 sql: `INSERT OR REPLACE INTO kanban_columns (id, project_id, name, color, position) VALUES (?, ?, ?, ?, ?)`,
                 bind: [payload.id || id, payload.project_id, payload.name, payload.color || 'bg-gray-500', payload.position || 0],
+            });
+            break;
+        case 'card_tags':
+            db.exec({
+                sql: `INSERT OR REPLACE INTO card_tags (id, card_id, name) VALUES (?, ?, ?)`,
+                bind: [payload.id || id, payload.card_id, payload.name],
+            });
+            break;
+        case 'card_assigned_users':
+            db.exec({
+                sql: `INSERT OR REPLACE INTO card_assigned_users (id, card_id, user_id, user_email) VALUES (?, ?, ?, ?)`,
+                bind: [payload.id || id, payload.card_id, payload.user_id, payload.user_email],
+            });
+            break;
+        case 'card_approvers':
+            db.exec({
+                sql: `INSERT OR REPLACE INTO card_approvers (id, card_id, user_id, user_email, status, decided_at) VALUES (?, ?, ?, ?, ?, ?)`,
+                bind: [payload.id || id, payload.card_id, payload.user_id, payload.user_email,
+                       payload.status || 'pending', payload.decided_at || null],
+            });
+            break;
+        case 'card_sessions':
+            db.exec({
+                sql: `INSERT OR REPLACE INTO card_sessions (id, card_id, name, position) VALUES (?, ?, ?, ?)`,
+                bind: [payload.id || id, payload.card_id, payload.name, payload.position || 0],
             });
             break;
     }

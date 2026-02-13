@@ -215,32 +215,32 @@ export default function KanbanBoard() {
   return (
     <div className="flex h-full flex-col">
       {/* Project selector */}
-      <div className="flex items-center gap-3 border-b border-gray-800 bg-gray-900/30 px-6 py-3">
+      <div className="flex flex-wrap items-center gap-2 border-b border-gray-800 bg-gray-900/30 px-4 py-2 sm:gap-3 sm:px-6 sm:py-3">
         <select
           value={currentProject || ''}
           onChange={e => setCurrentProject(e.target.value)}
-          className="rounded-lg border border-gray-700 bg-gray-800 px-3 py-1.5 text-sm text-gray-200 focus:border-indigo-500 focus:outline-none"
+          className="min-w-0 flex-1 rounded-lg border border-gray-700 bg-gray-800 px-3 py-2 text-sm text-gray-200 focus:border-indigo-500 focus:outline-none sm:flex-none"
         >
           <option value="" disabled>Select project...</option>
           {projects.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
         </select>
-        <form onSubmit={handleCreateProject} className="flex items-center gap-2">
+        <form onSubmit={handleCreateProject} className="flex min-w-0 flex-1 items-center gap-2 sm:flex-none">
           <input
             type="text" value={newProjectName}
             onChange={e => setNewProjectName(e.target.value)}
-            placeholder="New project name"
-            className="rounded-lg border border-gray-700 bg-gray-800 px-3 py-1.5 text-sm text-gray-200 placeholder-gray-500 focus:border-indigo-500 focus:outline-none"
+            placeholder="New project"
+            className="min-w-0 flex-1 rounded-lg border border-gray-700 bg-gray-800 px-3 py-2 text-sm text-gray-200 placeholder-gray-500 focus:border-indigo-500 focus:outline-none"
           />
-          <button type="submit" className="flex items-center gap-1.5 rounded-lg bg-indigo-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-indigo-500">
-            <FolderPlus size={14} /> Project
+          <button type="submit" className="flex shrink-0 items-center gap-1.5 rounded-lg bg-indigo-600 px-3 py-2 text-sm font-medium text-white hover:bg-indigo-500">
+            <FolderPlus size={14} /> <span className="hidden sm:inline">Project</span>
           </button>
         </form>
         {currentProject && (
           <button
             onClick={handleDeleteProject}
-            className="flex items-center gap-1.5 rounded-lg border border-gray-700 px-2.5 py-1.5 text-xs text-gray-500 hover:border-red-500 hover:text-red-400"
+            className="flex shrink-0 items-center gap-1.5 rounded-lg border border-gray-700 px-2.5 py-2 text-xs text-gray-500 hover:border-red-500 hover:text-red-400"
           >
-            <Trash2 size={12} /> Delete
+            <Trash2 size={12} /> <span className="hidden sm:inline">Delete</span>
           </button>
         )}
       </div>
@@ -251,9 +251,9 @@ export default function KanbanBoard() {
         </div>
       ) : (
         <DragDropContext onDragEnd={handleDragEnd}>
-          <div className="kanban-scroll flex flex-1 gap-4 overflow-x-auto p-6">
+          <div className="kanban-scroll flex flex-1 gap-3 overflow-x-auto p-3 sm:gap-4 sm:p-6">
             {columns.map(col => (
-              <div key={col.id} className="flex w-72 shrink-0 flex-col rounded-xl border border-gray-800 bg-gray-900">
+              <div key={col.id} className="flex w-64 shrink-0 flex-col rounded-xl border border-gray-800 bg-gray-900 sm:w-72">
                 {/* Column header */}
                 {editingCol === col.id ? (
                   <div className="border-b border-gray-800 px-3 py-2 space-y-2">
@@ -392,7 +392,7 @@ export default function KanbanBoard() {
             ))}
 
             {/* Add column */}
-            <div className="flex w-72 shrink-0 flex-col">
+            <div className="flex w-64 shrink-0 flex-col sm:w-72">
               {addingColumn ? (
                 <form onSubmit={handleCreateColumn} className="rounded-xl border border-gray-800 bg-gray-900 p-4 space-y-3">
                   <input

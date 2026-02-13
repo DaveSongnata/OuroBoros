@@ -7,6 +7,7 @@ import (
 	"os"
 	"os/signal"
 	"path/filepath"
+	"strings"
 	"syscall"
 	"time"
 
@@ -22,6 +23,7 @@ func main() {
 	redisAddr := envOr("REDIS_ADDR", "localhost:6379")
 	jwtSecret := envOr("JWT_SECRET", "ouroboros-dev-secret-change-in-prod")
 	dataDir := envOr("DATA_DIR", "./data")
+	staticDir := envOr("STATIC_DIR", "")
 
 	// Ensure data directory exists
 	if err := os.MkdirAll(dataDir, 0o755); err != nil {
@@ -34,8 +36,18 @@ func main() {
 		log.Fatalf("failed to open system db: %v", err)
 	}
 
-	// Redis client with retry
-	rdb := redis.NewClient(&redis.Options{Addr: redisAddr})
+	// Redis client — supports both host:port and redis:// URL formats
+	var rdb *redis.Client
+	if strings.HasPrefix(redisAddr, "redis://") || strings.HasPrefix(redisAddr, "rediss://") {
+		opt, err := redis.ParseURL(redisAddr)
+		if err != nil {
+			log.Fatalf("invalid REDIS_ADDR URL: %v", err)
+		}
+		rdb = redis.NewClient(opt)
+	} else {
+		rdb = redis.NewClient(&redis.Options{Addr: redisAddr})
+	}
+
 	ctx := context.Background()
 	const maxRetries = 5
 	for i := range maxRetries {
@@ -49,7 +61,7 @@ func main() {
 		}
 		break
 	}
-	log.Printf("connected to redis at %s", redisAddr)
+	log.Printf("connected to redis")
 
 	// Core services
 	tm := tenant.NewManager(dataDir, 64)
@@ -78,7 +90,7 @@ func main() {
 	mux.HandleFunc("GET /api/products", handlers.ListProducts(tm))
 	mux.HandleFunc("POST /api/orders", handlers.CreateOrder(tm, hub))
 	mux.HandleFunc("GET /api/orders", handlers.ListOrders(tm))
-	mux.HandleFunc("POST /api/users", handlers.InviteUser(sdb))
+	mux.HandleFunc("POST /api/users", handlers.InviteUser(sdb, tm, hub))
 	mux.HandleFunc("GET /api/users", handlers.ListTenantUsers(sdb))
 
 	// Kanban columns
@@ -87,8 +99,41 @@ func main() {
 	mux.HandleFunc("DELETE /api/kanban/columns/{id}", handlers.DeleteColumn(tm, hub))
 	mux.HandleFunc("GET /api/kanban/columns", handlers.ListColumns(tm))
 
+	// Card details: tags, assignees, approvers, sessions
+	mux.HandleFunc("POST /api/kanban/cards/{cardId}/tags", handlers.AddTag(tm, hub))
+	mux.HandleFunc("DELETE /api/kanban/cards/{cardId}/tags/{tagId}", handlers.RemoveTag(tm, hub))
+	mux.HandleFunc("POST /api/kanban/cards/{cardId}/assignees", handlers.AssignUser(tm, hub))
+	mux.HandleFunc("DELETE /api/kanban/cards/{cardId}/assignees/{assigneeId}", handlers.UnassignUser(tm, hub))
+	mux.HandleFunc("POST /api/kanban/cards/{cardId}/approvers", handlers.AddApprover(tm, hub))
+	mux.HandleFunc("DELETE /api/kanban/cards/{cardId}/approvers/{approverId}", handlers.RemoveApprover(tm, hub))
+	mux.HandleFunc("POST /api/kanban/cards/{cardId}/approvers/{approverId}/decide", handlers.DecideApproval(tm, hub))
+	mux.HandleFunc("POST /api/kanban/cards/{cardId}/sessions", handlers.CreateSession(tm, hub))
+	mux.HandleFunc("DELETE /api/kanban/cards/{cardId}/sessions/{sessionId}", handlers.DeleteSession(tm, hub))
+
 	// SSE endpoint (protected)
 	mux.HandleFunc("GET /sse/events", handlers.SSEHandler(hub))
+
+	// Serve frontend static files in production (SPA with fallback to index.html)
+	if staticDir != "" {
+		if info, err := os.Stat(staticDir); err == nil && info.IsDir() {
+			log.Printf("serving static files from %s", staticDir)
+			fs := http.FileServer(http.Dir(staticDir))
+			mux.Handle("/", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				// COOP/COEP headers required for SharedArrayBuffer (OPFS)
+				w.Header().Set("Cross-Origin-Opener-Policy", "same-origin")
+				w.Header().Set("Cross-Origin-Embedder-Policy", "require-corp")
+
+				// Try serving exact file
+				filePath := filepath.Join(staticDir, filepath.Clean(r.URL.Path))
+				if fi, err := os.Stat(filePath); err == nil && !fi.IsDir() {
+					fs.ServeHTTP(w, r)
+					return
+				}
+				// SPA fallback → index.html
+				http.ServeFile(w, r, filepath.Join(staticDir, "index.html"))
+			}))
+		}
+	}
 
 	srv := &http.Server{
 		Addr:         ":" + port,

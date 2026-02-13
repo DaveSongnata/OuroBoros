@@ -7,6 +7,8 @@ import (
 	"time"
 
 	"github.com/ouroboros/backend/internal/auth"
+	"github.com/ouroboros/backend/internal/sync"
+	"github.com/ouroboros/backend/internal/tenant"
 )
 
 type registerRequest struct {
@@ -113,7 +115,8 @@ func Login(a *auth.Auth, sdb *auth.SystemDB) http.HandlerFunc {
 }
 
 // InviteUser handles POST /api/users — creates a user in the caller's tenant.
-func InviteUser(sdb *auth.SystemDB) http.HandlerFunc {
+// Also notifies via SSE so other sessions see the new member in real-time.
+func InviteUser(sdb *auth.SystemDB, tm *tenant.Manager, hub *sync.Hub) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		tenantID := auth.TenantFromCtx(r.Context())
 		var req registerRequest
@@ -139,6 +142,27 @@ func InviteUser(sdb *auth.SystemDB) http.HandlerFunc {
 			http.Error(w, `{"error":"invite failed"}`, http.StatusInternalServerError)
 			return
 		}
+
+		// Notify other sessions via SSE
+		ctx := r.Context()
+		if db, dbErr := tm.DB(tenantID); dbErr == nil {
+			if tx, txErr := db.BeginTx(ctx, nil); txErr == nil {
+				newVersion, vErr := hub.NextVersion(ctx, tenantID)
+				if vErr == nil {
+					payload := `{"id":"` + user.ID + `","email":"` + user.Email + `","tenant_id":"` + user.TenantID + `"}`
+					tx.ExecContext(ctx,
+						"INSERT INTO sync_log (table_name, entity_id, operation, payload, version) VALUES (?, ?, 'INSERT', ?, ?)",
+						"users", user.ID, payload, newVersion,
+					)
+					if tx.Commit() == nil {
+						hub.Notify(ctx, tenantID, newVersion)
+					}
+				} else {
+					tx.Rollback()
+				}
+			}
+		}
+
 		writeJSON(w, http.StatusCreated, user)
 	}
 }

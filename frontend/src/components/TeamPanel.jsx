@@ -1,8 +1,10 @@
 import { useState, useEffect } from 'react';
+import { useWorker } from '../hooks/useWorker';
 import { api } from '../lib/api';
 import { X, UserPlus, Users, Loader2 } from 'lucide-react';
 
 export default function TeamPanel({ onClose }) {
+  const { onSync } = useWorker();
   const [users, setUsers] = useState([]);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -13,6 +15,15 @@ export default function TeamPanel({ onClose }) {
   useEffect(() => {
     api.listUsers().then(setUsers).catch(() => {});
   }, []);
+
+  // Re-fetch users when SSE notifies about user changes
+  useEffect(() => {
+    return onSync((tables) => {
+      if (tables.includes('users')) {
+        api.listUsers().then(setUsers).catch(() => {});
+      }
+    });
+  }, [onSync]);
 
   async function handleInvite(e) {
     e.preventDefault();
@@ -34,10 +45,10 @@ export default function TeamPanel({ onClose }) {
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-start justify-center pt-20" onClick={onClose}>
+    <div className="fixed inset-0 z-50 flex items-end justify-center sm:items-start sm:pt-20" onClick={onClose}>
       <div className="absolute inset-0 bg-black/50" />
       <div
-        className="relative w-full max-w-md rounded-xl border border-gray-800 bg-gray-900 shadow-2xl"
+        className="relative max-h-[85vh] w-full overflow-y-auto rounded-t-xl border border-gray-800 bg-gray-900 shadow-2xl sm:max-w-md sm:rounded-xl"
         onClick={e => e.stopPropagation()}
       >
         <div className="flex items-center justify-between border-b border-gray-800 px-6 py-4">

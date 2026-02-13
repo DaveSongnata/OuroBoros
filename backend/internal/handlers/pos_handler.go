@@ -224,6 +224,15 @@ func CreateOrder(tm *tenant.Manager, hub *sync.Hub) http.HandlerFunc {
 			"os_orders", order.UUID, string(payload), newVersion,
 		)
 
+		// Sync each item separately so the worker's os_items table stays populated
+		for _, it := range items {
+			itemPayload, _ := json.Marshal(it)
+			tx.ExecContext(ctx,
+				"INSERT INTO sync_log (table_name, entity_id, operation, payload, version) VALUES (?, ?, 'INSERT', ?, ?)",
+				"os_items", it.ID, string(itemPayload), newVersion,
+			)
+		}
+
 		if err := tx.Commit(); err != nil {
 			http.Error(w, `{"error":"commit failed"}`, http.StatusInternalServerError)
 			return

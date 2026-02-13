@@ -55,31 +55,31 @@ export default function App() {
   return (
     <div className="flex h-screen flex-col bg-gray-950">
       {/* Header */}
-      <header className="flex items-center justify-between border-b border-gray-800 bg-gray-900 px-6 py-3">
-        <div className="flex items-center gap-4">
-          <h1 className="text-lg font-bold tracking-tight text-indigo-400">
+      <header className="flex flex-wrap items-center justify-between gap-2 border-b border-gray-800 bg-gray-900 px-4 py-2 sm:px-6 sm:py-3">
+        <div className="flex items-center gap-3">
+          <h1 className="text-base font-bold tracking-tight text-indigo-400 sm:text-lg">
             OuroBoros
           </h1>
           <StatusBadge status={syncStatus} />
         </div>
-        <div className="flex items-center gap-4">
-          <span className="font-mono text-xs text-gray-500">v{version}</span>
+        <div className="flex items-center gap-2 sm:gap-4">
+          <span className="hidden font-mono text-xs text-gray-500 sm:inline">v{version}</span>
           {userEmail && (
-            <span className="text-xs text-gray-500">{userEmail}</span>
+            <span className="hidden text-xs text-gray-500 md:inline">{userEmail}</span>
           )}
           <button
             onClick={() => setShowTeam(true)}
-            className="flex items-center gap-1.5 rounded-lg border border-gray-700 px-2.5 py-1 text-xs text-gray-400 transition-colors hover:border-indigo-500 hover:text-indigo-400"
+            className="flex items-center gap-1.5 rounded-lg border border-gray-700 px-2.5 py-1.5 text-xs text-gray-400 transition-colors hover:border-indigo-500 hover:text-indigo-400"
           >
-            <Users size={12} />
-            Team
+            <Users size={14} />
+            <span className="hidden sm:inline">Team</span>
           </button>
           <button
             onClick={handleLogout}
-            className="flex items-center gap-1.5 rounded-lg border border-gray-700 px-2.5 py-1 text-xs text-gray-400 transition-colors hover:border-red-500 hover:text-red-400"
+            className="flex items-center gap-1.5 rounded-lg border border-gray-700 px-2.5 py-1.5 text-xs text-gray-400 transition-colors hover:border-red-500 hover:text-red-400"
           >
-            <LogOut size={12} />
-            Logout
+            <LogOut size={14} />
+            <span className="hidden sm:inline">Logout</span>
           </button>
         </div>
       </header>

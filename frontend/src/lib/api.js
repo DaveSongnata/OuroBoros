@@ -47,4 +47,15 @@ export const api = {
   // Users
   listUsers: () => request('GET', '/api/users'),
   inviteUser: (email, password) => request('POST', '/api/users', { email, password }),
+
+  // Card details
+  addTag: (cardId, name) => request('POST', `/api/kanban/cards/${cardId}/tags`, { name }),
+  removeTag: (cardId, tagId) => request('DELETE', `/api/kanban/cards/${cardId}/tags/${tagId}`),
+  assignUser: (cardId, user_id, user_email) => request('POST', `/api/kanban/cards/${cardId}/assignees`, { user_id, user_email }),
+  unassignUser: (cardId, assigneeId) => request('DELETE', `/api/kanban/cards/${cardId}/assignees/${assigneeId}`),
+  addApprover: (cardId, user_id, user_email) => request('POST', `/api/kanban/cards/${cardId}/approvers`, { user_id, user_email }),
+  removeApprover: (cardId, approverId) => request('DELETE', `/api/kanban/cards/${cardId}/approvers/${approverId}`),
+  decideApproval: (cardId, approverId, status) => request('POST', `/api/kanban/cards/${cardId}/approvers/${approverId}/decide`, { status }),
+  createSession: (cardId, name) => request('POST', `/api/kanban/cards/${cardId}/sessions`, { name }),
+  deleteSession: (cardId, sessionId) => request('DELETE', `/api/kanban/cards/${cardId}/sessions/${sessionId}`),
 };

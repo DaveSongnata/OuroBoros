@@ -17,6 +17,10 @@ type card struct {
 	Position           int     `json:"position"`
 	ApprovalStatus     string  `json:"approval_status"`
 	AssignedApproverID *string `json:"assigned_approver_id"`
+	DueDate            *string `json:"due_date"`
+	Client             *string `json:"client"`
+	Priority           string  `json:"priority"`
+	Notes              *string `json:"notes"`
 }
 
 func CreateCard(tm *tenant.Manager, hub *sync.Hub) http.HandlerFunc {
@@ -54,9 +58,9 @@ func CreateCard(tm *tenant.Manager, hub *sync.Hub) http.HandlerFunc {
 		err = tx.QueryRowContext(ctx,
 			`INSERT INTO kanban_cards (project_id, column_name, title, position)
 			 VALUES (?, ?, ?, ?)
-			 RETURNING id, project_id, column_name, title, position, approval_status, assigned_approver_id`,
+			 RETURNING id, project_id, column_name, title, position, approval_status, assigned_approver_id, due_date, client, priority, notes`,
 			req.ProjectID, req.ColumnName, req.Title, req.Position,
-		).Scan(&c.ID, &c.ProjectID, &c.ColumnName, &c.Title, &c.Position, &c.ApprovalStatus, &c.AssignedApproverID)
+		).Scan(&c.ID, &c.ProjectID, &c.ColumnName, &c.Title, &c.Position, &c.ApprovalStatus, &c.AssignedApproverID, &c.DueDate, &c.Client, &c.Priority, &c.Notes)
 		if err != nil {
 			http.Error(w, `{"error":"insert failed"}`, http.StatusInternalServerError)
 			return
@@ -100,6 +104,10 @@ func UpdateCard(tm *tenant.Manager, hub *sync.Hub) http.HandlerFunc {
 			Position           *int    `json:"position"`
 			ApprovalStatus     *string `json:"approval_status"`
 			AssignedApproverID *string `json:"assigned_approver_id"`
+			DueDate            *string `json:"due_date"`
+			Client             *string `json:"client"`
+			Priority           *string `json:"priority"`
+			Notes              *string `json:"notes"`
 		}
 		if err := decodeJSON(r, &req); err != nil {
 			http.Error(w, `{"error":"invalid json"}`, http.StatusBadRequest)
@@ -129,11 +137,26 @@ func UpdateCard(tm *tenant.Manager, hub *sync.Hub) http.HandlerFunc {
 		if req.AssignedApproverID != nil {
 			tx.ExecContext(ctx, "UPDATE kanban_cards SET assigned_approver_id = ? WHERE id = ?", *req.AssignedApproverID, cardID)
 		}
+		if req.DueDate != nil {
+			tx.ExecContext(ctx, "UPDATE kanban_cards SET due_date = ? WHERE id = ?", *req.DueDate, cardID)
+		}
+		if req.Client != nil {
+			tx.ExecContext(ctx, "UPDATE kanban_cards SET client = ? WHERE id = ?", *req.Client, cardID)
+		}
+		if req.Priority != nil {
+			tx.ExecContext(ctx, "UPDATE kanban_cards SET priority = ? WHERE id = ?", *req.Priority, cardID)
+		}
+		if req.Notes != nil {
+			tx.ExecContext(ctx, "UPDATE kanban_cards SET notes = ? WHERE id = ?", *req.Notes, cardID)
+		}
 
 		var c card
 		err = tx.QueryRowContext(ctx,
-			"SELECT id, project_id, column_name, title, position, approval_status, assigned_approver_id FROM kanban_cards WHERE id = ?", cardID,
-		).Scan(&c.ID, &c.ProjectID, &c.ColumnName, &c.Title, &c.Position, &c.ApprovalStatus, &c.AssignedApproverID)
+			`SELECT id, project_id, column_name, title, position, approval_status,
+			        assigned_approver_id, due_date, client, priority, notes
+			 FROM kanban_cards WHERE id = ?`, cardID,
+		).Scan(&c.ID, &c.ProjectID, &c.ColumnName, &c.Title, &c.Position, &c.ApprovalStatus,
+			&c.AssignedApproverID, &c.DueDate, &c.Client, &c.Priority, &c.Notes)
 		if err != nil {
 			http.Error(w, `{"error":"card not found"}`, http.StatusNotFound)
 			return
@@ -171,7 +194,7 @@ func ListCards(tm *tenant.Manager) http.HandlerFunc {
 		}
 
 		projectID := r.URL.Query().Get("project_id")
-		query := "SELECT id, project_id, column_name, title, position, approval_status, assigned_approver_id FROM kanban_cards"
+		query := "SELECT id, project_id, column_name, title, position, approval_status, assigned_approver_id, due_date, client, priority, notes FROM kanban_cards"
 		var args []any
 		if projectID != "" {
 			query += " WHERE project_id = ?"
@@ -189,7 +212,7 @@ func ListCards(tm *tenant.Manager) http.HandlerFunc {
 		var cards []card
 		for rows.Next() {
 			var c card
-			rows.Scan(&c.ID, &c.ProjectID, &c.ColumnName, &c.Title, &c.Position, &c.ApprovalStatus, &c.AssignedApproverID)
+			rows.Scan(&c.ID, &c.ProjectID, &c.ColumnName, &c.Title, &c.Position, &c.ApprovalStatus, &c.AssignedApproverID, &c.DueDate, &c.Client, &c.Priority, &c.Notes)
 			cards = append(cards, c)
 		}
 		if cards == nil {

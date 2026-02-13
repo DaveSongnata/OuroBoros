@@ -1,5 +1,39 @@
 @import "tailwindcss";
 
+/* Safe area insets for notched phones (iPhone X+) */
+html {
+  padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
+  -webkit-text-size-adjust: 100%;
+}
+
+/* Touch-friendly: prevent double-tap zoom on interactive elements */
+button, a, select, input, textarea {
+  touch-action: manipulation;
+}
+
+/* Shared input field style for drawers/forms */
+.input-field {
+  width: 100%;
+  border-radius: 0.5rem;
+  border: 1px solid #374151;
+  background-color: #1f2937;
+  padding: 0.5rem 0.75rem;
+  font-size: 1rem; /* 16px prevents iOS zoom on focus */
+  color: #e5e7eb;
+}
+@media (min-width: 640px) {
+  .input-field {
+    font-size: 0.875rem;
+  }
+}
+.input-field:focus {
+  border-color: #6366f1;
+  outline: none;
+}
+.input-field::placeholder {
+  color: #6b7280;
+}
+
 /* Scrollbar styling for the kanban board */
 .kanban-scroll::-webkit-scrollbar {
   height: 8px;
@@ -13,4 +47,15 @@
 }
 .kanban-scroll::-webkit-scrollbar-thumb:hover {
   background: #4b5563;
+}
+
+/* Hide scrollbar on mobile for cleaner look (still scrollable) */
+@media (max-width: 639px) {
+  .kanban-scroll::-webkit-scrollbar {
+    display: none;
+  }
+  .kanban-scroll {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
 }
