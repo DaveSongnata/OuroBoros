@@ -59,36 +59,32 @@ func main() {
 	// Start SSE hub (subscribes to Redis Pub/Sub)
 	go hub.Run(ctx)
 
-	// Router
+	// Router — single mux, middleware skips /api/auth/ paths
 	mux := http.NewServeMux()
 
-	// Public routes (no auth required)
+	// Auth routes (public — middleware skips /api/auth/ prefix)
 	mux.HandleFunc("POST /api/auth/register", handlers.Register(jwtAuth, sdb))
 	mux.HandleFunc("POST /api/auth/login", handlers.Login(jwtAuth, sdb))
 
 	// Protected API routes
-	api := http.NewServeMux()
-	api.HandleFunc("GET /api/sync", handlers.GetSync(tm))
-	api.HandleFunc("POST /api/projects", handlers.CreateProject(tm, hub))
-	api.HandleFunc("GET /api/projects", handlers.ListProjects(tm))
-	api.HandleFunc("POST /api/kanban/cards", handlers.CreateCard(tm, hub))
-	api.HandleFunc("PUT /api/kanban/cards/{id}", handlers.UpdateCard(tm, hub))
-	api.HandleFunc("GET /api/kanban/cards", handlers.ListCards(tm))
-	api.HandleFunc("POST /api/products", handlers.CreateProduct(tm, hub))
-	api.HandleFunc("GET /api/products", handlers.ListProducts(tm))
-	api.HandleFunc("POST /api/orders", handlers.CreateOrder(tm, hub))
-	api.HandleFunc("GET /api/orders", handlers.ListOrders(tm))
-	api.HandleFunc("GET /api/users", handlers.ListTenantUsers(sdb))
+	mux.HandleFunc("GET /api/sync", handlers.GetSync(tm))
+	mux.HandleFunc("POST /api/projects", handlers.CreateProject(tm, hub))
+	mux.HandleFunc("GET /api/projects", handlers.ListProjects(tm))
+	mux.HandleFunc("POST /api/kanban/cards", handlers.CreateCard(tm, hub))
+	mux.HandleFunc("PUT /api/kanban/cards/{id}", handlers.UpdateCard(tm, hub))
+	mux.HandleFunc("GET /api/kanban/cards", handlers.ListCards(tm))
+	mux.HandleFunc("POST /api/products", handlers.CreateProduct(tm, hub))
+	mux.HandleFunc("GET /api/products", handlers.ListProducts(tm))
+	mux.HandleFunc("POST /api/orders", handlers.CreateOrder(tm, hub))
+	mux.HandleFunc("GET /api/orders", handlers.ListOrders(tm))
+	mux.HandleFunc("GET /api/users", handlers.ListTenantUsers(sdb))
 
 	// SSE endpoint (protected)
-	api.HandleFunc("GET /sse/events", handlers.SSEHandler(hub))
-
-	// Wrap protected routes with auth middleware
-	mux.Handle("/", jwtAuth.Middleware(api))
+	mux.HandleFunc("GET /sse/events", handlers.SSEHandler(hub))
 
 	srv := &http.Server{
 		Addr:         ":" + port,
-		Handler:      corsMiddleware(mux),
+		Handler:      corsMiddleware(jwtAuth.Middleware(mux)),
 		ReadTimeout:  5 * time.Second,
 		WriteTimeout: 0, // SSE needs unlimited write timeout
 		IdleTimeout:  120 * time.Second,

@@ -55,8 +55,15 @@ func (a *Auth) Verify(tokenStr string) (*Claims, error) {
 
 // Middleware extracts the JWT from the Authorization header, verifies it,
 // and injects tenant_id into context. No DB lookups.
+// Public paths under /api/auth/ are passed through without token checks.
 func (a *Auth) Middleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		// Skip auth for public endpoints
+		if strings.HasPrefix(r.URL.Path, "/api/auth/") {
+			next.ServeHTTP(w, r)
+			return
+		}
+
 		header := r.Header.Get("Authorization")
 		if !strings.HasPrefix(header, "Bearer ") {
 			http.Error(w, `{"error":"missing authorization"}`, http.StatusUnauthorized)
