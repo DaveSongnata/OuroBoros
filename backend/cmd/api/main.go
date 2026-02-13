@@ -27,11 +27,20 @@ func main() {
 		log.Fatalf("failed to create data dir: %v", err)
 	}
 
-	// Redis client
+	// Redis client with retry
 	rdb := redis.NewClient(&redis.Options{Addr: redisAddr})
 	ctx := context.Background()
-	if err := rdb.Ping(ctx).Err(); err != nil {
-		log.Fatalf("failed to connect to redis: %v", err)
+	const maxRetries = 5
+	for i := range maxRetries {
+		if err := rdb.Ping(ctx).Err(); err != nil {
+			if i == maxRetries-1 {
+				log.Fatalf("failed to connect to redis after %d attempts: %v", maxRetries, err)
+			}
+			log.Printf("redis not ready (attempt %d/%d), retrying in 1s...", i+1, maxRetries)
+			time.Sleep(time.Second)
+			continue
+		}
+		break
 	}
 	log.Printf("connected to redis at %s", redisAddr)
 

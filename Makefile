@@ -1,18 +1,29 @@
-.PHONY: dev build run clean docker-up docker-down
+.PHONY: dev build run clean docker-up docker-down stop test fmt
 
-# Development: run Go backend directly (requires local Redis)
+# Development: start Redis in Docker, then run Go backend
 dev:
+	@echo "=> Starting Redis via Docker Compose..."
+	docker compose up -d redis
+	@echo "=> Waiting for Redis to be ready..."
+	@until docker compose exec redis valkey-cli ping 2>/dev/null | grep -q PONG; do sleep 0.5; done
+	@echo "=> Redis is up. Starting Go API..."
 	cd backend && go run ./cmd/api
+
+# Stop infrastructure containers (Redis, etc.)
+stop:
+	docker compose stop
 
 # Build the Go binary
 build:
 	cd backend && go build -o bin/api ./cmd/api
 
-# Run the built binary
+# Run the built binary (starts Redis first)
 run: build
+	docker compose up -d redis
+	@until docker compose exec redis valkey-cli ping 2>/dev/null | grep -q PONG; do sleep 0.5; done
 	cd backend && ./bin/api
 
-# Docker Compose
+# Full Docker Compose stack
 docker-up:
 	docker compose up --build -d
 
