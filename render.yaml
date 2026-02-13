@@ -1,0 +1,25 @@
+# OuroBoros — Render Blueprint
+# Deploy: connect repo → Render detects this file → creates all services
+#
+# NOTE: The disk (persistent SQLite storage) requires Render Starter plan ($7/mo).
+# On the free plan, data is ephemeral and lost on restart.
+
+services:
+  - type: web
+    name: ouroboros
+    runtime: docker
+    plan: starter
+    dockerfilePath: ./Dockerfile
+    envVars:
+      - key: PORT
+        value: "10000"
+      - key: JWT_SECRET
+        generateValue: true
+      - key: DATA_DIR
+        value: /data
+      - key: STATIC_DIR
+        value: ./frontend/dist
+    disk:
+      name: ouroboros-data
+      mountPath: /data
+      sizeGB: 1
