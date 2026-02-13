@@ -20,6 +20,9 @@ self.addEventListener('activate', (e) => {
 self.addEventListener('fetch', (e) => {
   const url = new URL(e.request.url);
 
+  // Only handle http/https requests (ignore chrome-extension://, etc.)
+  if (url.protocol !== 'https:' && url.protocol !== 'http:') return;
+
   // Never cache API, SSE, or WebSocket requests
   if (url.pathname.startsWith('/api') || url.pathname.startsWith('/sse')) return;
 
