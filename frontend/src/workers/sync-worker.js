@@ -15,7 +15,11 @@ let apiBase = '';
 
 // ── SQLite OPFS Initialization ─────────────────────────────────────────────
 async function initDB() {
-    const sqlite3 = await sqlite3InitModule({ print: console.log, printErr: console.error });
+    const sqlite3 = await sqlite3InitModule({
+        print: console.log,
+        printErr: console.error,
+        locateFile: (file) => `/sqlite3/${file}`,
+    });
     console.log('[worker] SQLite version:', sqlite3.version.libVersion);
 
     // Try OPFS first, fall back to in-memory
@@ -196,6 +200,10 @@ async function fetchDeltas() {
 
 // ── Query Handler — Real SQL SELECTs ───────────────────────────────────────
 function handleQuery(id, query) {
+    if (!db) {
+        postMessage({ type: 'query-result', id, result: [] });
+        return;
+    }
     const { table, filter, sql: rawSql } = query;
     let result;
 
@@ -221,6 +229,7 @@ function handleQuery(id, query) {
 
 // ── Optimistic Write ───────────────────────────────────────────────────────
 function handleOptimisticWrite(data) {
+    if (!db) return;
     const { table, id, payload } = data;
     upsertRow(table, id, payload);
     postMessage({

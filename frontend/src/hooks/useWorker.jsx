@@ -28,6 +28,7 @@ export function WorkerProvider({ children }) {
       const msg = e.data;
       switch (msg.type) {
         case 'db-ready':
+          setReady(true);
           setSyncStatus('syncing');
           break;
         case 'sync-status':
@@ -51,7 +52,6 @@ export function WorkerProvider({ children }) {
     };
 
     w.postMessage({ type: 'init', token, apiBase: '' });
-    setReady(true);
   }, []);
 
   useEffect(() => {
