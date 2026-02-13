@@ -63,8 +63,13 @@ func (a *Auth) Verify(tokenStr string) (*Claims, error) {
 // Public paths under /api/auth/ are passed through without token checks.
 func (a *Auth) Middleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		// Skip auth for public endpoints
+		// Skip auth for public endpoints and static files (frontend SPA)
+		// Only require JWT for /api/* (except /api/auth/) and /sse/*
 		if strings.HasPrefix(r.URL.Path, "/api/auth/") {
+			next.ServeHTTP(w, r)
+			return
+		}
+		if !strings.HasPrefix(r.URL.Path, "/api") && !strings.HasPrefix(r.URL.Path, "/sse") {
 			next.ServeHTTP(w, r)
 			return
 		}
