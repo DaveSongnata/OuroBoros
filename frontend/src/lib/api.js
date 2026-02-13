@@ -37,5 +37,13 @@ export const api = {
   updateCard: (id, data) => request('PUT', `/api/kanban/cards/${id}`, data),
   createProduct: (data) => request('POST', '/api/products', data),
   createOrder: (data) => request('POST', '/api/orders', data),
+
+  // Columns
+  createColumn: (data) => request('POST', '/api/kanban/columns', data),
+  updateColumn: (id, data) => request('PUT', `/api/kanban/columns/${id}`, data),
+  deleteColumn: (id) => request('DELETE', `/api/kanban/columns/${id}`),
+
+  // Users
   listUsers: () => request('GET', '/api/users'),
+  inviteUser: (email, password) => request('POST', '/api/users', { email, password }),
 };

@@ -54,6 +54,11 @@ async function initDB() {
             id TEXT PRIMARY KEY, order_id TEXT NOT NULL,
             product_id TEXT NOT NULL, qty INTEGER NOT NULL DEFAULT 1
         );
+        CREATE TABLE IF NOT EXISTS kanban_columns (
+            id TEXT PRIMARY KEY, project_id TEXT NOT NULL,
+            name TEXT NOT NULL, color TEXT NOT NULL DEFAULT 'bg-gray-500',
+            position INTEGER NOT NULL DEFAULT 0
+        );
         CREATE TABLE IF NOT EXISTS _meta (key TEXT PRIMARY KEY, value TEXT);
     `);
 
@@ -124,6 +129,12 @@ function upsertRow(table, id, payload) {
             db.exec({
                 sql: `INSERT OR REPLACE INTO os_items (id, order_id, product_id, qty) VALUES (?, ?, ?, ?)`,
                 bind: [payload.id || id, payload.order_id, payload.product_id, payload.qty || 1],
+            });
+            break;
+        case 'kanban_columns':
+            db.exec({
+                sql: `INSERT OR REPLACE INTO kanban_columns (id, project_id, name, color, position) VALUES (?, ?, ?, ?, ?)`,
+                bind: [payload.id || id, payload.project_id, payload.name, payload.color || 'bg-gray-500', payload.position || 0],
             });
             break;
     }
@@ -219,6 +230,7 @@ function handleQuery(id, query) {
             sqlStr += ` WHERE ${clauses.join(' AND ')}`;
         }
         if (table === 'kanban_cards') sqlStr += ' ORDER BY position';
+        if (table === 'kanban_columns') sqlStr += ' ORDER BY position';
         if (table === 'os_orders') sqlStr += ' ORDER BY rowid DESC';
 
         result = db.exec({ sql: sqlStr, bind: binds, returnValue: 'resultRows', rowMode: 'object' });

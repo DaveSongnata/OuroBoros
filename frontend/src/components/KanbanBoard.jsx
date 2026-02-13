@@ -6,14 +6,12 @@ import CardDrawer from './CardDrawer';
 import {
   Plus, GripVertical, FolderPlus,
   CheckCircle, XCircle, Clock, DollarSign,
+  Pencil, Trash2, X, Check,
 } from 'lucide-react';
 
-const COLUMNS = [
-  { id: 'backlog', label: 'Backlog', color: 'bg-gray-500' },
-  { id: 'todo', label: 'To Do', color: 'bg-blue-500' },
-  { id: 'in_progress', label: 'In Progress', color: 'bg-amber-500' },
-  { id: 'review', label: 'Review', color: 'bg-purple-500' },
-  { id: 'done', label: 'Done', color: 'bg-emerald-500' },
+const COLOR_OPTIONS = [
+  'bg-gray-500', 'bg-blue-500', 'bg-amber-500', 'bg-purple-500',
+  'bg-emerald-500', 'bg-red-500', 'bg-indigo-500', 'bg-pink-500', 'bg-cyan-500',
 ];
 
 const APPROVAL_ICON = {
@@ -25,6 +23,7 @@ const APPROVAL_ICON = {
 export default function KanbanBoard() {
   const { query, optimisticWrite, onSync, ready } = useWorker();
   const [projects, setProjects] = useState([]);
+  const [columns, setColumns] = useState([]);
   const [cards, setCards] = useState([]);
   const [salesTotals, setSalesTotals] = useState({});
   const [currentProject, setCurrentProject] = useState(null);
@@ -32,6 +31,13 @@ export default function KanbanBoard() {
   const [addingCardCol, setAddingCardCol] = useState(null);
   const [newCardTitle, setNewCardTitle] = useState('');
   const [selectedCard, setSelectedCard] = useState(null);
+  // Column management
+  const [addingColumn, setAddingColumn] = useState(false);
+  const [newColName, setNewColName] = useState('');
+  const [newColColor, setNewColColor] = useState('bg-blue-500');
+  const [editingCol, setEditingCol] = useState(null);
+  const [editColName, setEditColName] = useState('');
+  const [editColColor, setEditColColor] = useState('');
 
   const loadProjects = useCallback(async () => {
     if (!ready) return;
@@ -42,13 +48,18 @@ export default function KanbanBoard() {
     }
   }, [query, ready, currentProject]);
 
+  const loadColumns = useCallback(async () => {
+    if (!ready || !currentProject) return;
+    const result = await query('kanban_columns', { project_id: currentProject });
+    setColumns(result);
+  }, [query, ready, currentProject]);
+
   const loadCards = useCallback(async () => {
     if (!ready || !currentProject) return;
     const result = await query('kanban_cards', { project_id: currentProject });
     setCards(result);
   }, [query, ready, currentProject]);
 
-  // Load sales totals per card via SQL JOIN
   const loadSalesTotals = useCallback(async () => {
     if (!ready) return;
     try {
@@ -60,22 +71,22 @@ export default function KanbanBoard() {
         map[row.card_id] = { total: row.total_sales || 0, count: row.order_count || 0 };
       }
       setSalesTotals(map);
-    } catch {
-      // SQL might fail if table empty — that's ok
-    }
+    } catch { /* table may be empty */ }
   }, [query, ready]);
 
   useEffect(() => { loadProjects(); }, [loadProjects]);
+  useEffect(() => { loadColumns(); }, [loadColumns]);
   useEffect(() => { loadCards(); }, [loadCards]);
   useEffect(() => { loadSalesTotals(); }, [loadSalesTotals]);
 
   useEffect(() => {
     return onSync((tables) => {
       if (tables.includes('projects')) loadProjects();
+      if (tables.includes('kanban_columns')) loadColumns();
       if (tables.includes('kanban_cards')) loadCards();
       if (tables.includes('os_orders')) loadSalesTotals();
     });
-  }, [onSync, loadProjects, loadCards, loadSalesTotals]);
+  }, [onSync, loadProjects, loadColumns, loadCards, loadSalesTotals]);
 
   async function handleCreateProject(e) {
     e.preventDefault();
@@ -85,6 +96,17 @@ export default function KanbanBoard() {
       optimisticWrite('projects', p.id, p);
       setCurrentProject(p.id);
       setNewProjectName('');
+      // Create default columns
+      const defaults = [
+        { name: 'Backlog', color: 'bg-gray-500', position: 0 },
+        { name: 'To Do', color: 'bg-blue-500', position: 1 },
+        { name: 'In Progress', color: 'bg-amber-500', position: 2 },
+        { name: 'Done', color: 'bg-emerald-500', position: 3 },
+      ];
+      for (const col of defaults) {
+        const c = await api.createColumn({ project_id: p.id, ...col });
+        optimisticWrite('kanban_columns', c.id, c);
+      }
     } catch (err) {
       console.error('Failed to create project:', err);
     }
@@ -104,6 +126,45 @@ export default function KanbanBoard() {
       setAddingCardCol(null);
     } catch (err) {
       console.error('Failed to create card:', err);
+    }
+  }
+
+  async function handleCreateColumn(e) {
+    e.preventDefault();
+    if (!newColName.trim()) return;
+    try {
+      const c = await api.createColumn({
+        project_id: currentProject,
+        name: newColName.trim(),
+        color: newColColor,
+        position: columns.length,
+      });
+      optimisticWrite('kanban_columns', c.id, c);
+      setNewColName('');
+      setNewColColor('bg-blue-500');
+      setAddingColumn(false);
+    } catch (err) {
+      console.error('Failed to create column:', err);
+    }
+  }
+
+  async function handleUpdateColumn(colId) {
+    if (!editColName.trim()) return;
+    try {
+      const c = await api.updateColumn(colId, { name: editColName.trim(), color: editColColor });
+      optimisticWrite('kanban_columns', c.id, c);
+      setEditingCol(null);
+    } catch (err) {
+      console.error('Failed to update column:', err);
+    }
+  }
+
+  async function handleDeleteColumn(colId) {
+    try {
+      await api.deleteColumn(colId);
+      setColumns(prev => prev.filter(c => c.id !== colId));
+    } catch (err) {
+      console.error('Failed to delete column:', err);
     }
   }
 
@@ -132,7 +193,7 @@ export default function KanbanBoard() {
   }
 
   const cardsByColumn = {};
-  for (const col of COLUMNS) {
+  for (const col of columns) {
     cardsByColumn[col.id] = cards.filter(c => c.column_name === col.id);
   }
 
@@ -168,18 +229,63 @@ export default function KanbanBoard() {
       ) : (
         <DragDropContext onDragEnd={handleDragEnd}>
           <div className="kanban-scroll flex flex-1 gap-4 overflow-x-auto p-6">
-            {COLUMNS.map(col => (
+            {columns.map(col => (
               <div key={col.id} className="flex w-72 shrink-0 flex-col rounded-xl border border-gray-800 bg-gray-900">
-                <div className="flex items-center justify-between border-b border-gray-800 px-4 py-3">
-                  <div className="flex items-center gap-2">
-                    <div className={`h-2.5 w-2.5 rounded-full ${col.color}`} />
-                    <span className="text-sm font-semibold text-gray-200">{col.label}</span>
+                {/* Column header */}
+                {editingCol === col.id ? (
+                  <div className="border-b border-gray-800 px-3 py-2 space-y-2">
+                    <input
+                      autoFocus
+                      value={editColName}
+                      onChange={e => setEditColName(e.target.value)}
+                      onKeyDown={e => { if (e.key === 'Escape') setEditingCol(null); }}
+                      className="w-full rounded border border-gray-700 bg-gray-800 px-2 py-1 text-sm text-gray-200 focus:border-indigo-500 focus:outline-none"
+                    />
+                    <div className="flex flex-wrap gap-1">
+                      {COLOR_OPTIONS.map(c => (
+                        <button
+                          key={c} type="button"
+                          onClick={() => setEditColColor(c)}
+                          className={`h-5 w-5 rounded-full ${c} ${editColColor === c ? 'ring-2 ring-white ring-offset-1 ring-offset-gray-900' : ''}`}
+                        />
+                      ))}
+                    </div>
+                    <div className="flex gap-1">
+                      <button onClick={() => handleUpdateColumn(col.id)} className="flex-1 rounded bg-indigo-600 py-1 text-xs text-white hover:bg-indigo-500">
+                        <Check size={12} className="mx-auto" />
+                      </button>
+                      <button onClick={() => setEditingCol(null)} className="flex-1 rounded bg-gray-800 py-1 text-xs text-gray-400 hover:bg-gray-700">
+                        <X size={12} className="mx-auto" />
+                      </button>
+                    </div>
                   </div>
-                  <span className="rounded-full bg-gray-800 px-2 py-0.5 text-xs font-medium text-gray-400">
-                    {cardsByColumn[col.id].length}
-                  </span>
-                </div>
+                ) : (
+                  <div className="flex items-center justify-between border-b border-gray-800 px-4 py-3">
+                    <div className="flex items-center gap-2">
+                      <div className={`h-2.5 w-2.5 rounded-full ${col.color}`} />
+                      <span className="text-sm font-semibold text-gray-200">{col.name}</span>
+                    </div>
+                    <div className="flex items-center gap-1">
+                      <span className="rounded-full bg-gray-800 px-2 py-0.5 text-xs font-medium text-gray-400">
+                        {(cardsByColumn[col.id] || []).length}
+                      </span>
+                      <button
+                        onClick={() => { setEditingCol(col.id); setEditColName(col.name); setEditColColor(col.color); }}
+                        className="rounded p-1 text-gray-600 hover:text-gray-300"
+                      >
+                        <Pencil size={12} />
+                      </button>
+                      <button
+                        onClick={() => handleDeleteColumn(col.id)}
+                        className="rounded p-1 text-gray-600 hover:text-red-400"
+                      >
+                        <Trash2 size={12} />
+                      </button>
+                    </div>
+                  </div>
+                )}
 
+                {/* Droppable card area */}
                 <Droppable droppableId={col.id}>
                   {(provided, snapshot) => (
                     <div
@@ -188,7 +294,7 @@ export default function KanbanBoard() {
                       className={`flex-1 space-y-2 overflow-y-auto p-2 transition-colors ${snapshot.isDraggingOver ? 'bg-gray-800/50' : ''}`}
                       style={{ minHeight: 80 }}
                     >
-                      {cardsByColumn[col.id].map((card, index) => {
+                      {(cardsByColumn[col.id] || []).map((card, index) => {
                         const approval = APPROVAL_ICON[card.approval_status] || APPROVAL_ICON.pending;
                         const ApprovalIcon = approval.icon;
                         const sales = salesTotals[card.id];
@@ -235,6 +341,7 @@ export default function KanbanBoard() {
                   )}
                 </Droppable>
 
+                {/* Add card */}
                 <div className="border-t border-gray-800 p-2">
                   {addingCardCol === col.id ? (
                     <form onSubmit={handleCreateCard} className="space-y-2">
@@ -260,6 +367,42 @@ export default function KanbanBoard() {
                 </div>
               </div>
             ))}
+
+            {/* Add column */}
+            <div className="flex w-72 shrink-0 flex-col">
+              {addingColumn ? (
+                <form onSubmit={handleCreateColumn} className="rounded-xl border border-gray-800 bg-gray-900 p-4 space-y-3">
+                  <input
+                    autoFocus
+                    value={newColName}
+                    onChange={e => setNewColName(e.target.value)}
+                    onKeyDown={e => { if (e.key === 'Escape') setAddingColumn(false); }}
+                    placeholder="Column name..."
+                    className="w-full rounded-lg border border-gray-700 bg-gray-800 px-3 py-1.5 text-sm text-gray-200 placeholder-gray-500 focus:border-indigo-500 focus:outline-none"
+                  />
+                  <div className="flex flex-wrap gap-1.5">
+                    {COLOR_OPTIONS.map(c => (
+                      <button
+                        key={c} type="button"
+                        onClick={() => setNewColColor(c)}
+                        className={`h-6 w-6 rounded-full ${c} transition-all ${newColColor === c ? 'ring-2 ring-white ring-offset-1 ring-offset-gray-900 scale-110' : 'opacity-60 hover:opacity-100'}`}
+                      />
+                    ))}
+                  </div>
+                  <div className="flex gap-2">
+                    <button type="submit" className="flex-1 rounded-lg bg-indigo-600 py-1.5 text-xs font-medium text-white hover:bg-indigo-500">Create</button>
+                    <button type="button" onClick={() => setAddingColumn(false)} className="flex-1 rounded-lg bg-gray-800 py-1.5 text-xs text-gray-400 hover:bg-gray-700">Cancel</button>
+                  </div>
+                </form>
+              ) : (
+                <button
+                  onClick={() => setAddingColumn(true)}
+                  className="flex h-12 items-center justify-center gap-2 rounded-xl border border-dashed border-gray-700 text-sm text-gray-500 hover:border-indigo-500 hover:text-indigo-400 transition-colors"
+                >
+                  <Plus size={16} /> Add Column
+                </button>
+              )}
+            </div>
           </div>
         </DragDropContext>
       )}

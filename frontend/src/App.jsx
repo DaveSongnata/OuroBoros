@@ -3,26 +3,20 @@ import { useWorker } from './hooks/useWorker';
 import { setToken } from './lib/api';
 import LoginScreen from './components/LoginScreen';
 import KanbanBoard from './components/KanbanBoard';
-import POSModule from './components/POSModule';
+import TeamPanel from './components/TeamPanel';
 import {
-  LayoutDashboard,
-  ShoppingCart,
   Wifi,
   WifiOff,
   Loader2,
   LogOut,
+  Users,
 } from 'lucide-react';
 
-const TABS = [
-  { id: 'kanban', label: 'Kanban', icon: LayoutDashboard },
-  { id: 'pos', label: 'POS', icon: ShoppingCart },
-];
-
 export default function App() {
-  const [activeTab, setActiveTab] = useState('kanban');
   const { syncStatus, version, ready, startWorker } = useWorker();
   const [authed, setAuthed] = useState(false);
   const [userEmail, setUserEmail] = useState('');
+  const [showTeam, setShowTeam] = useState(false);
 
   // On mount, check localStorage for existing session
   useEffect(() => {
@@ -74,6 +68,13 @@ export default function App() {
             <span className="text-xs text-gray-500">{userEmail}</span>
           )}
           <button
+            onClick={() => setShowTeam(true)}
+            className="flex items-center gap-1.5 rounded-lg border border-gray-700 px-2.5 py-1 text-xs text-gray-400 transition-colors hover:border-indigo-500 hover:text-indigo-400"
+          >
+            <Users size={12} />
+            Team
+          </button>
+          <button
             onClick={handleLogout}
             className="flex items-center gap-1.5 rounded-lg border border-gray-700 px-2.5 py-1 text-xs text-gray-400 transition-colors hover:border-red-500 hover:text-red-400"
           >
@@ -83,28 +84,6 @@ export default function App() {
         </div>
       </header>
 
-      {/* Tab bar */}
-      <nav className="flex gap-1 border-b border-gray-800 bg-gray-900/50 px-6">
-        {TABS.map((tab) => {
-          const Icon = tab.icon;
-          const isActive = activeTab === tab.id;
-          return (
-            <button
-              key={tab.id}
-              onClick={() => setActiveTab(tab.id)}
-              className={`flex items-center gap-2 border-b-2 px-4 py-2.5 text-sm font-medium transition-colors ${
-                isActive
-                  ? 'border-indigo-500 text-indigo-400'
-                  : 'border-transparent text-gray-400 hover:text-gray-200'
-              }`}
-            >
-              <Icon size={16} />
-              {tab.label}
-            </button>
-          );
-        })}
-      </nav>
-
       {/* Content */}
       <main className="flex-1 overflow-hidden">
         {!ready ? (
@@ -112,12 +91,12 @@ export default function App() {
             <Loader2 className="mr-2 animate-spin" size={20} />
             Initializing local database...
           </div>
-        ) : activeTab === 'kanban' ? (
-          <KanbanBoard />
         ) : (
-          <POSModule />
+          <KanbanBoard />
         )}
       </main>
+
+      {showTeam && <TeamPanel onClose={() => setShowTeam(false)} />}
     </div>
   );
 }

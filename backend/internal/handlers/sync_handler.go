@@ -72,6 +72,8 @@ func SSEHandler(hub *sync.Hub) http.HandlerFunc {
 		w.Header().Set("Cache-Control", "no-cache")
 		w.Header().Set("Connection", "keep-alive")
 		w.Header().Set("X-Accel-Buffering", "no")
+		// Initial comment forces proxies (Vite, Nginx) to forward the response
+		w.Write([]byte(":ok\n\n"))
 		flusher.Flush()
 
 		ch, unsub := hub.Subscribe(tenantID)

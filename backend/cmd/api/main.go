@@ -77,7 +77,14 @@ func main() {
 	mux.HandleFunc("GET /api/products", handlers.ListProducts(tm))
 	mux.HandleFunc("POST /api/orders", handlers.CreateOrder(tm, hub))
 	mux.HandleFunc("GET /api/orders", handlers.ListOrders(tm))
+	mux.HandleFunc("POST /api/users", handlers.InviteUser(sdb))
 	mux.HandleFunc("GET /api/users", handlers.ListTenantUsers(sdb))
+
+	// Kanban columns
+	mux.HandleFunc("POST /api/kanban/columns", handlers.CreateColumn(tm, hub))
+	mux.HandleFunc("PUT /api/kanban/columns/{id}", handlers.UpdateColumn(tm, hub))
+	mux.HandleFunc("DELETE /api/kanban/columns/{id}", handlers.DeleteColumn(tm, hub))
+	mux.HandleFunc("GET /api/kanban/columns", handlers.ListColumns(tm))
 
 	// SSE endpoint (protected)
 	mux.HandleFunc("GET /sse/events", handlers.SSEHandler(hub))
