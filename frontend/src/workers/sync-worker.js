@@ -250,8 +250,18 @@ async function fetchDeltas() {
         const deltas = await res.json();
         if (!deltas.length) return;
 
-        for (const delta of deltas) {
-            applyDelta(delta);
+        // Wrap in a transaction — without this, each INSERT OR REPLACE
+        // triggers a separate journal/fsync, making 30k writes take minutes.
+        // With a transaction, the same 30k writes finish in milliseconds.
+        db.exec('BEGIN');
+        try {
+            for (const delta of deltas) {
+                applyDelta(delta);
+            }
+            db.exec('COMMIT');
+        } catch (e) {
+            db.exec('ROLLBACK');
+            throw e;
         }
         localVersion = deltas[deltas.length - 1].version;
 

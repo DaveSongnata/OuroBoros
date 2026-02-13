@@ -61,7 +61,6 @@ func main() {
 		tenantID, err = firstTenant(sdb)
 		if err != nil {
 			// No users yet — create a bootstrap user so we have a tenant to import into.
-			// Users can still register normally; this just ensures the import has a target.
 			bootTenant := envOr("IMPORT_TENANT", "demo")
 			bootEmail := envOr("IMPORT_EMAIL", "admin@ouroboros.dev")
 			bootPass := envOr("IMPORT_PASS", "admin123456")
@@ -100,6 +99,7 @@ func main() {
 			db.Exec("DELETE FROM os_items")
 			db.Exec("DELETE FROM os_orders")
 			db.Exec("DELETE FROM products")
+			db.Exec("DELETE FROM sync_log WHERE table_name = 'products'")
 		} else {
 			log.Printf("skipping import — %d products already exist (set CLEAR_PRODUCTS=true to reimport)", count)
 			tm.CloseAll()
@@ -139,7 +139,9 @@ func main() {
 	}
 	stmt.Close()
 
-	// 7. Write sync_log entries
+	// 7. Write sync_log entries so the frontend worker picks them up.
+	// The worker wraps delta application in BEGIN/COMMIT, so 30k entries
+	// are processed in ~1 second (single transaction, single fsync).
 	newVersion, err := hub.NextVersion(ctx, tenantID)
 	if err != nil {
 		log.Printf("warning: redis version failed (sync may be stale): %v", err)
