@@ -23,9 +23,12 @@ WORKDIR /app
 COPY --from=backend /api ./api
 COPY --from=frontend /app/frontend/dist ./frontend/dist
 
-ENV PORT=10000
+# Create data directory (replaced by volume mount in production)
+RUN mkdir -p /data
+
+ENV PORT=8080
 ENV STATIC_DIR=./frontend/dist
 ENV DATA_DIR=/data
 
-EXPOSE 10000
+EXPOSE 8080
 CMD ["./api"]
