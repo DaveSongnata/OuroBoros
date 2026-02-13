@@ -1,6 +1,7 @@
-# OuroBoros — Fly.io configuration
-# Deploy: fly launch → fly deploy
-# Volume: fly volumes create ouroboros_data --size 1 --region gru
+# fly.toml app configuration file generated for ouroboros on 2026-02-13T16:07:13-04:00
+#
+# See https://fly.io/docs/reference/configuration/ for information about how to use this file.
+#
 
 app = 'ouroboros'
 primary_region = 'gru'
@@ -8,9 +9,13 @@ primary_region = 'gru'
 [build]
 
 [env]
-  PORT = '8080'
   DATA_DIR = '/data'
+  PORT = '8080'
   STATIC_DIR = './frontend/dist'
+
+[[mounts]]
+  source = 'ouroboros_data'
+  destination = '/data'
 
 [http_service]
   internal_port = 8080
@@ -21,18 +26,15 @@ primary_region = 'gru'
 
 [checks]
   [checks.health]
-    type = 'http'
     port = 8080
-    path = '/api/auth/login'
-    method = 'GET'
+    type = 'http'
     interval = '30s'
     timeout = '5s'
-
-[mounts]
-  source = 'ouroboros_data'
-  destination = '/data'
+    method = 'GET'
+    path = '/'
 
 [[vm]]
   memory = '256mb'
   cpu_kind = 'shared'
   cpus = 1
+  memory_mb = 256
