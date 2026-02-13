@@ -1,0 +1,6 @@
+{
+  "name": "ouroboros-frontend",
+  "version": "1.0.0",
+  "private": true,
+  "description": "OuroBoros Local-First Kanban & POS Frontend"
+}
