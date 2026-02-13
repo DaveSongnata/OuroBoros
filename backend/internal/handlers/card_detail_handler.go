@@ -88,10 +88,13 @@ func AddTag(tm *tenant.Manager, hub *sync.Hub) http.HandlerFunc {
 		}
 
 		payload, _ := json.Marshal(t)
-		tx.ExecContext(ctx,
+		if _, err := tx.ExecContext(ctx,
 			"INSERT INTO sync_log (table_name, entity_id, operation, payload, version) VALUES (?, ?, 'INSERT', ?, ?)",
 			"card_tags", t.ID, string(payload), newVersion,
-		)
+		); err != nil {
+			http.Error(w, `{"error":"sync_log insert failed"}`, http.StatusInternalServerError)
+			return
+		}
 
 		if err := tx.Commit(); err != nil {
 			http.Error(w, `{"error":"commit failed"}`, http.StatusInternalServerError)
@@ -137,10 +140,13 @@ func RemoveTag(tm *tenant.Manager, hub *sync.Hub) http.HandlerFunc {
 			return
 		}
 
-		tx.ExecContext(ctx,
+		if _, err := tx.ExecContext(ctx,
 			`INSERT INTO sync_log (table_name, entity_id, operation, payload, version) VALUES (?, ?, 'DELETE', '{}', ?)`,
 			"card_tags", tagID, newVersion,
-		)
+		); err != nil {
+			http.Error(w, `{"error":"sync_log insert failed"}`, http.StatusInternalServerError)
+			return
+		}
 
 		if err := tx.Commit(); err != nil {
 			http.Error(w, `{"error":"commit failed"}`, http.StatusInternalServerError)
@@ -198,10 +204,13 @@ func AssignUser(tm *tenant.Manager, hub *sync.Hub) http.HandlerFunc {
 		}
 
 		payload, _ := json.Marshal(a)
-		tx.ExecContext(ctx,
+		if _, err := tx.ExecContext(ctx,
 			"INSERT INTO sync_log (table_name, entity_id, operation, payload, version) VALUES (?, ?, 'INSERT', ?, ?)",
 			"card_assigned_users", a.ID, string(payload), newVersion,
-		)
+		); err != nil {
+			http.Error(w, `{"error":"sync_log insert failed"}`, http.StatusInternalServerError)
+			return
+		}
 
 		if err := tx.Commit(); err != nil {
 			http.Error(w, `{"error":"commit failed"}`, http.StatusInternalServerError)
@@ -247,10 +256,13 @@ func UnassignUser(tm *tenant.Manager, hub *sync.Hub) http.HandlerFunc {
 			return
 		}
 
-		tx.ExecContext(ctx,
+		if _, err := tx.ExecContext(ctx,
 			`INSERT INTO sync_log (table_name, entity_id, operation, payload, version) VALUES (?, ?, 'DELETE', '{}', ?)`,
 			"card_assigned_users", assigneeID, newVersion,
-		)
+		); err != nil {
+			http.Error(w, `{"error":"sync_log insert failed"}`, http.StatusInternalServerError)
+			return
+		}
 
 		if err := tx.Commit(); err != nil {
 			http.Error(w, `{"error":"commit failed"}`, http.StatusInternalServerError)
@@ -313,12 +325,18 @@ func AddApprover(tm *tenant.Manager, hub *sync.Hub) http.HandlerFunc {
 		}
 
 		payload, _ := json.Marshal(a)
-		tx.ExecContext(ctx,
+		if _, err := tx.ExecContext(ctx,
 			"INSERT INTO sync_log (table_name, entity_id, operation, payload, version) VALUES (?, ?, 'INSERT', ?, ?)",
 			"card_approvers", a.ID, string(payload), newVersion,
-		)
+		); err != nil {
+			http.Error(w, `{"error":"sync_log insert failed"}`, http.StatusInternalServerError)
+			return
+		}
 
-		syncCardUpdate(tx, ctx, cardID, newVersion)
+		if err := syncCardUpdate(tx, ctx, cardID, newVersion); err != nil {
+			http.Error(w, `{"error":"sync_log insert failed"}`, http.StatusInternalServerError)
+			return
+		}
 
 		if err := tx.Commit(); err != nil {
 			http.Error(w, `{"error":"commit failed"}`, http.StatusInternalServerError)
@@ -367,12 +385,18 @@ func RemoveApprover(tm *tenant.Manager, hub *sync.Hub) http.HandlerFunc {
 			return
 		}
 
-		tx.ExecContext(ctx,
+		if _, err := tx.ExecContext(ctx,
 			`INSERT INTO sync_log (table_name, entity_id, operation, payload, version) VALUES (?, ?, 'DELETE', '{}', ?)`,
 			"card_approvers", approverID, newVersion,
-		)
+		); err != nil {
+			http.Error(w, `{"error":"sync_log insert failed"}`, http.StatusInternalServerError)
+			return
+		}
 
-		syncCardUpdate(tx, ctx, cardID, newVersion)
+		if err := syncCardUpdate(tx, ctx, cardID, newVersion); err != nil {
+			http.Error(w, `{"error":"sync_log insert failed"}`, http.StatusInternalServerError)
+			return
+		}
 
 		if err := tx.Commit(); err != nil {
 			http.Error(w, `{"error":"commit failed"}`, http.StatusInternalServerError)
@@ -453,12 +477,18 @@ func DecideApproval(tm *tenant.Manager, hub *sync.Hub) http.HandlerFunc {
 		}
 
 		payload, _ := json.Marshal(a)
-		tx.ExecContext(ctx,
+		if _, err := tx.ExecContext(ctx,
 			"INSERT INTO sync_log (table_name, entity_id, operation, payload, version) VALUES (?, ?, 'UPDATE', ?, ?)",
 			"card_approvers", a.ID, string(payload), newVersion,
-		)
+		); err != nil {
+			http.Error(w, `{"error":"sync_log insert failed"}`, http.StatusInternalServerError)
+			return
+		}
 
-		syncCardUpdate(tx, ctx, cardID, newVersion)
+		if err := syncCardUpdate(tx, ctx, cardID, newVersion); err != nil {
+			http.Error(w, `{"error":"sync_log insert failed"}`, http.StatusInternalServerError)
+			return
+		}
 
 		if err := tx.Commit(); err != nil {
 			http.Error(w, `{"error":"commit failed"}`, http.StatusInternalServerError)
@@ -518,10 +548,13 @@ func CreateSession(tm *tenant.Manager, hub *sync.Hub) http.HandlerFunc {
 		}
 
 		payload, _ := json.Marshal(s)
-		tx.ExecContext(ctx,
+		if _, err := tx.ExecContext(ctx,
 			"INSERT INTO sync_log (table_name, entity_id, operation, payload, version) VALUES (?, ?, 'INSERT', ?, ?)",
 			"card_sessions", s.ID, string(payload), newVersion,
-		)
+		); err != nil {
+			http.Error(w, `{"error":"sync_log insert failed"}`, http.StatusInternalServerError)
+			return
+		}
 
 		if err := tx.Commit(); err != nil {
 			http.Error(w, `{"error":"commit failed"}`, http.StatusInternalServerError)
@@ -567,10 +600,13 @@ func DeleteSession(tm *tenant.Manager, hub *sync.Hub) http.HandlerFunc {
 			return
 		}
 
-		tx.ExecContext(ctx,
+		if _, err := tx.ExecContext(ctx,
 			`INSERT INTO sync_log (table_name, entity_id, operation, payload, version) VALUES (?, ?, 'DELETE', '{}', ?)`,
 			"card_sessions", sessionID, newVersion,
-		)
+		); err != nil {
+			http.Error(w, `{"error":"sync_log insert failed"}`, http.StatusInternalServerError)
+			return
+		}
 
 		if err := tx.Commit(); err != nil {
 			http.Error(w, `{"error":"commit failed"}`, http.StatusInternalServerError)
@@ -611,7 +647,7 @@ func recalcApprovalStatus(tx *sql.Tx, ctx context.Context, cardID string) {
 }
 
 // syncCardUpdate reads the full card and writes a sync_log entry for it.
-func syncCardUpdate(tx *sql.Tx, ctx context.Context, cardID string, version int64) {
+func syncCardUpdate(tx *sql.Tx, ctx context.Context, cardID string, version int64) error {
 	var c card
 	err := tx.QueryRowContext(ctx,
 		`SELECT id, project_id, column_name, title, position, approval_status,
@@ -620,12 +656,13 @@ func syncCardUpdate(tx *sql.Tx, ctx context.Context, cardID string, version int6
 	).Scan(&c.ID, &c.ProjectID, &c.ColumnName, &c.Title, &c.Position, &c.ApprovalStatus,
 		&c.AssignedApproverID, &c.DueDate, &c.Client, &c.Priority, &c.Notes)
 	if err != nil {
-		return
+		return err
 	}
 
 	payload, _ := json.Marshal(c)
-	tx.ExecContext(ctx,
+	_, err = tx.ExecContext(ctx,
 		"INSERT INTO sync_log (table_name, entity_id, operation, payload, version) VALUES (?, ?, 'UPDATE', ?, ?)",
 		"kanban_cards", c.ID, string(payload), version,
 	)
+	return err
 }

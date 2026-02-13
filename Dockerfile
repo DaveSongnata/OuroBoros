@@ -14,6 +14,7 @@ COPY backend/go.mod backend/go.sum ./
 RUN go mod download
 COPY backend/ ./
 RUN CGO_ENABLED=1 go build -o /api ./cmd/api
+RUN CGO_ENABLED=1 go build -o /import-products ./cmd/import-products
 
 # ── Stage 3: Runtime (Go API + Redis, single container) ─────────────────────
 FROM alpine:3.21
@@ -21,10 +22,14 @@ RUN apk add --no-cache ca-certificates valkey
 
 WORKDIR /app
 COPY --from=backend /api ./api
+COPY --from=backend /import-products ./import-products
 COPY --from=frontend /app/frontend/dist ./frontend/dist
 
 # Create data directory (replaced by volume mount in production)
 RUN mkdir -p /data
+
+# Product dump for import
+COPY dump/mybase1-0.sql /app/dump.sql
 
 ENV PORT=8080
 ENV STATIC_DIR=./frontend/dist
@@ -32,4 +37,5 @@ ENV DATA_DIR=/data
 ENV REDIS_ADDR=localhost:6379
 
 EXPOSE 8080
-CMD valkey-server --daemonize yes --save "" --appendonly no && ./api
+CMD valkey-server --daemonize yes --save "" --appendonly no && \
+    ./import-products /app/dump.sql && ./api

@@ -73,10 +73,13 @@ func CreateCard(tm *tenant.Manager, hub *sync.Hub) http.HandlerFunc {
 		}
 
 		payload, _ := json.Marshal(c)
-		tx.ExecContext(ctx,
+		if _, err := tx.ExecContext(ctx,
 			"INSERT INTO sync_log (table_name, entity_id, operation, payload, version) VALUES (?, ?, 'INSERT', ?, ?)",
 			"kanban_cards", c.ID, string(payload), newVersion,
-		)
+		); err != nil {
+			http.Error(w, `{"error":"sync_log insert failed"}`, http.StatusInternalServerError)
+			return
+		}
 
 		if err := tx.Commit(); err != nil {
 			http.Error(w, `{"error":"commit failed"}`, http.StatusInternalServerError)
@@ -169,10 +172,13 @@ func UpdateCard(tm *tenant.Manager, hub *sync.Hub) http.HandlerFunc {
 		}
 
 		payload, _ := json.Marshal(c)
-		tx.ExecContext(ctx,
+		if _, err := tx.ExecContext(ctx,
 			"INSERT INTO sync_log (table_name, entity_id, operation, payload, version) VALUES (?, ?, 'UPDATE', ?, ?)",
 			"kanban_cards", c.ID, string(payload), newVersion,
-		)
+		); err != nil {
+			http.Error(w, `{"error":"sync_log insert failed"}`, http.StatusInternalServerError)
+			return
+		}
 
 		if err := tx.Commit(); err != nil {
 			http.Error(w, `{"error":"commit failed"}`, http.StatusInternalServerError)

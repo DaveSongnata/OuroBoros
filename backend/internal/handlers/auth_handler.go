@@ -150,12 +150,15 @@ func InviteUser(sdb *auth.SystemDB, tm *tenant.Manager, hub *sync.Hub) http.Hand
 				newVersion, vErr := hub.NextVersion(ctx, tenantID)
 				if vErr == nil {
 					payload := `{"id":"` + user.ID + `","email":"` + user.Email + `","tenant_id":"` + user.TenantID + `"}`
-					tx.ExecContext(ctx,
+					if _, err := tx.ExecContext(ctx,
 						"INSERT INTO sync_log (table_name, entity_id, operation, payload, version) VALUES (?, ?, 'INSERT', ?, ?)",
 						"users", user.ID, payload, newVersion,
-					)
-					if tx.Commit() == nil {
-						hub.Notify(ctx, tenantID, newVersion)
+					); err == nil {
+						if tx.Commit() == nil {
+							hub.Notify(ctx, tenantID, newVersion)
+						}
+					} else {
+						tx.Rollback()
 					}
 				} else {
 					tx.Rollback()

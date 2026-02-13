@@ -76,10 +76,13 @@ func CreateProduct(tm *tenant.Manager, hub *sync.Hub) http.HandlerFunc {
 		}
 
 		payload, _ := json.Marshal(p)
-		tx.ExecContext(ctx,
+		if _, err := tx.ExecContext(ctx,
 			"INSERT INTO sync_log (table_name, entity_id, operation, payload, version) VALUES (?, ?, 'INSERT', ?, ?)",
 			"products", p.ID, string(payload), newVersion,
-		)
+		); err != nil {
+			http.Error(w, `{"error":"sync_log insert failed"}`, http.StatusInternalServerError)
+			return
+		}
 
 		if err := tx.Commit(); err != nil {
 			http.Error(w, `{"error":"commit failed"}`, http.StatusInternalServerError)
@@ -219,18 +222,24 @@ func CreateOrder(tm *tenant.Manager, hub *sync.Hub) http.HandlerFunc {
 		}
 
 		payload, _ := json.Marshal(order)
-		tx.ExecContext(ctx,
+		if _, err := tx.ExecContext(ctx,
 			"INSERT INTO sync_log (table_name, entity_id, operation, payload, version) VALUES (?, ?, 'INSERT', ?, ?)",
 			"os_orders", order.UUID, string(payload), newVersion,
-		)
+		); err != nil {
+			http.Error(w, `{"error":"sync_log insert failed"}`, http.StatusInternalServerError)
+			return
+		}
 
 		// Sync each item separately so the worker's os_items table stays populated
 		for _, it := range items {
 			itemPayload, _ := json.Marshal(it)
-			tx.ExecContext(ctx,
+			if _, err := tx.ExecContext(ctx,
 				"INSERT INTO sync_log (table_name, entity_id, operation, payload, version) VALUES (?, ?, 'INSERT', ?, ?)",
 				"os_items", it.ID, string(itemPayload), newVersion,
-			)
+			); err != nil {
+				http.Error(w, `{"error":"sync_log insert failed"}`, http.StatusInternalServerError)
+				return
+			}
 		}
 
 		if err := tx.Commit(); err != nil {

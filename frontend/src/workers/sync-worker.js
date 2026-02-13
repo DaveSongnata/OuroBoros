@@ -210,6 +210,10 @@ async function startFetchSSE() {
 
         postMessage({ type: 'sync-status', status: 'online' });
 
+        // Catch-up: fetch any deltas that arrived between the initial
+        // fetchDeltas() and the SSE connection being established.
+        await fetchDeltas();
+
         const reader = response.body.getReader();
         const decoder = new TextDecoder();
         let buffer = '';
