@@ -60,7 +60,17 @@ func main() {
 	} else {
 		tenantID, err = firstTenant(sdb)
 		if err != nil {
-			log.Fatalf("no tenant found: %v\nPass tenant_id as second argument.", err)
+			// No users yet — create a bootstrap user so we have a tenant to import into.
+			// Users can still register normally; this just ensures the import has a target.
+			bootTenant := envOr("IMPORT_TENANT", "demo")
+			bootEmail := envOr("IMPORT_EMAIL", "admin@ouroboros.dev")
+			bootPass := envOr("IMPORT_PASS", "admin123456")
+			log.Printf("no tenant found — creating bootstrap user %s (tenant: %s)", bootEmail, bootTenant)
+			user, regErr := sdb.Register(bootEmail, bootPass, bootTenant)
+			if regErr != nil {
+				log.Fatalf("could not create bootstrap user: %v", regErr)
+			}
+			tenantID = user.TenantID
 		}
 	}
 	log.Printf("target tenant: %s", tenantID)
@@ -80,13 +90,22 @@ func main() {
 	}
 	hub := sync.NewHub(rdb)
 
-	// 5. Clear existing products (optional — avoids duplicates on re-run)
-	clearFlag := envOr("CLEAR_PRODUCTS", "false")
-	if clearFlag == "true" || clearFlag == "1" {
-		log.Println("CLEAR_PRODUCTS=true — deleting existing products...")
-		db.Exec("DELETE FROM os_items")
-		db.Exec("DELETE FROM os_orders")
-		db.Exec("DELETE FROM products")
+	// 5. Skip if products already exist (avoids duplicates on container restart)
+	var count int
+	db.QueryRow("SELECT COUNT(*) FROM products").Scan(&count)
+	if count > 0 {
+		clearFlag := envOr("CLEAR_PRODUCTS", "false")
+		if clearFlag == "true" || clearFlag == "1" {
+			log.Printf("CLEAR_PRODUCTS=true — deleting %d existing products...", count)
+			db.Exec("DELETE FROM os_items")
+			db.Exec("DELETE FROM os_orders")
+			db.Exec("DELETE FROM products")
+		} else {
+			log.Printf("skipping import — %d products already exist (set CLEAR_PRODUCTS=true to reimport)", count)
+			tm.CloseAll()
+			rdb.Close()
+			return
+		}
 	}
 
 	// 6. Bulk insert in a single transaction
