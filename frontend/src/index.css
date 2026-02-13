@@ -1,0 +1,16 @@
+@import "tailwindcss";
+
+/* Scrollbar styling for the kanban board */
+.kanban-scroll::-webkit-scrollbar {
+  height: 8px;
+}
+.kanban-scroll::-webkit-scrollbar-track {
+  background: transparent;
+}
+.kanban-scroll::-webkit-scrollbar-thumb {
+  background: #374151;
+  border-radius: 4px;
+}
+.kanban-scroll::-webkit-scrollbar-thumb:hover {
+  background: #4b5563;
+}
