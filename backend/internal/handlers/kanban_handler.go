@@ -62,7 +62,7 @@ func CreateCard(tm *tenant.Manager, hub *sync.Hub) http.HandlerFunc {
 			return
 		}
 
-		newVersion, err := hub.Publish(ctx, tenantID)
+		newVersion, err := hub.NextVersion(ctx, tenantID)
 		if err != nil {
 			http.Error(w, `{"error":"redis error"}`, http.StatusInternalServerError)
 			return
@@ -79,6 +79,7 @@ func CreateCard(tm *tenant.Manager, hub *sync.Hub) http.HandlerFunc {
 			return
 		}
 
+		hub.Notify(ctx, tenantID, newVersion)
 		writeJSON(w, http.StatusCreated, c)
 	}
 }
@@ -138,7 +139,7 @@ func UpdateCard(tm *tenant.Manager, hub *sync.Hub) http.HandlerFunc {
 			return
 		}
 
-		newVersion, err := hub.Publish(ctx, tenantID)
+		newVersion, err := hub.NextVersion(ctx, tenantID)
 		if err != nil {
 			http.Error(w, `{"error":"redis error"}`, http.StatusInternalServerError)
 			return
@@ -155,6 +156,7 @@ func UpdateCard(tm *tenant.Manager, hub *sync.Hub) http.HandlerFunc {
 			return
 		}
 
+		hub.Notify(ctx, tenantID, newVersion)
 		writeJSON(w, http.StatusOK, c)
 	}
 }

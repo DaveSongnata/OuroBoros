@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { useWorker } from '../hooks/useWorker';
 import { api } from '../lib/api';
 import {
@@ -27,6 +27,7 @@ export default function CardDrawer({ card, onClose }) {
   const [orders, setOrders] = useState([]);
   const [users, setUsers] = useState([]);
   const [placing, setPlacing] = useState(false);
+  const placingRef = useRef(false);
   const [cardData, setCardData] = useState(card);
 
   const loadProducts = useCallback(async () => {
@@ -77,7 +78,8 @@ export default function CardDrawer({ card, onClose }) {
   const cartTotal = cart.reduce((sum, i) => sum + i.product.price * i.qty, 0);
 
   async function handlePlaceOrder() {
-    if (cart.length === 0 || placing || isRejected) return;
+    if (cart.length === 0 || placingRef.current || isRejected) return;
+    placingRef.current = true;
     setPlacing(true);
     try {
       const items = cart.map(i => ({ product_id: i.product.id, qty: i.qty }));
@@ -87,6 +89,7 @@ export default function CardDrawer({ card, onClose }) {
     } catch (err) {
       alert('Failed: ' + err.message);
     } finally {
+      placingRef.current = false;
       setPlacing(false);
     }
   }

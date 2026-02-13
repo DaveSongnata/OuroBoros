@@ -46,6 +46,7 @@ func (h *Hub) Subscribe(tenantID string) (<-chan int64, func()) {
 }
 
 // Publish increments the tenant version in Redis and broadcasts to Pub/Sub.
+// DEPRECATED: Use NextVersion + Notify to avoid the race where SSE fires before tx.Commit.
 func (h *Hub) Publish(ctx context.Context, tenantID string) (int64, error) {
 	newVersion, err := h.rdb.HIncrBy(ctx, "tenant:"+tenantID+":version", "v", 1).Result()
 	if err != nil {
@@ -53,6 +54,18 @@ func (h *Hub) Publish(ctx context.Context, tenantID string) (int64, error) {
 	}
 	h.rdb.Publish(ctx, "sync:"+tenantID, newVersion)
 	return newVersion, nil
+}
+
+// NextVersion increments the tenant version in Redis and returns it.
+// Call BEFORE tx.Commit() to get the version for sync_log.
+func (h *Hub) NextVersion(ctx context.Context, tenantID string) (int64, error) {
+	return h.rdb.HIncrBy(ctx, "tenant:"+tenantID+":version", "v", 1).Result()
+}
+
+// Notify broadcasts a version update to SSE clients via Redis Pub/Sub.
+// Call AFTER tx.Commit() so data is available when clients fetch deltas.
+func (h *Hub) Notify(ctx context.Context, tenantID string, version int64) {
+	h.rdb.Publish(ctx, "sync:"+tenantID, version)
 }
 
 // GetVersion returns the current version for a tenant from Redis.

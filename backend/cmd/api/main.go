@@ -69,6 +69,7 @@ func main() {
 	// Protected API routes
 	mux.HandleFunc("GET /api/sync", handlers.GetSync(tm))
 	mux.HandleFunc("POST /api/projects", handlers.CreateProject(tm, hub))
+	mux.HandleFunc("DELETE /api/projects/{id}", handlers.DeleteProject(tm, hub))
 	mux.HandleFunc("GET /api/projects", handlers.ListProjects(tm))
 	mux.HandleFunc("POST /api/kanban/cards", handlers.CreateCard(tm, hub))
 	mux.HandleFunc("PUT /api/kanban/cards/{id}", handlers.UpdateCard(tm, hub))

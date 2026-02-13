@@ -69,7 +69,7 @@ func CreateProduct(tm *tenant.Manager, hub *sync.Hub) http.HandlerFunc {
 			return
 		}
 
-		newVersion, err := hub.Publish(ctx, tenantID)
+		newVersion, err := hub.NextVersion(ctx, tenantID)
 		if err != nil {
 			http.Error(w, `{"error":"redis error"}`, http.StatusInternalServerError)
 			return
@@ -86,6 +86,7 @@ func CreateProduct(tm *tenant.Manager, hub *sync.Hub) http.HandlerFunc {
 			return
 		}
 
+		hub.Notify(ctx, tenantID, newVersion)
 		writeJSON(w, http.StatusCreated, p)
 	}
 }
@@ -211,7 +212,7 @@ func CreateOrder(tm *tenant.Manager, hub *sync.Hub) http.HandlerFunc {
 			Items:     items,
 		}
 
-		newVersion, err := hub.Publish(ctx, tenantID)
+		newVersion, err := hub.NextVersion(ctx, tenantID)
 		if err != nil {
 			http.Error(w, `{"error":"redis error"}`, http.StatusInternalServerError)
 			return
@@ -228,6 +229,7 @@ func CreateOrder(tm *tenant.Manager, hub *sync.Hub) http.HandlerFunc {
 			return
 		}
 
+		hub.Notify(ctx, tenantID, newVersion)
 		writeJSON(w, http.StatusCreated, order)
 	}
 }

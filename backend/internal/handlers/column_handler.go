@@ -60,7 +60,7 @@ func CreateColumn(tm *tenant.Manager, hub *sync.Hub) http.HandlerFunc {
 			return
 		}
 
-		newVersion, err := hub.Publish(ctx, tenantID)
+		newVersion, err := hub.NextVersion(ctx, tenantID)
 		if err != nil {
 			http.Error(w, `{"error":"redis error"}`, http.StatusInternalServerError)
 			return
@@ -77,6 +77,7 @@ func CreateColumn(tm *tenant.Manager, hub *sync.Hub) http.HandlerFunc {
 			return
 		}
 
+		hub.Notify(ctx, tenantID, newVersion)
 		writeJSON(w, http.StatusCreated, c)
 	}
 }
@@ -128,7 +129,7 @@ func UpdateColumn(tm *tenant.Manager, hub *sync.Hub) http.HandlerFunc {
 			return
 		}
 
-		newVersion, err := hub.Publish(ctx, tenantID)
+		newVersion, err := hub.NextVersion(ctx, tenantID)
 		if err != nil {
 			http.Error(w, `{"error":"redis error"}`, http.StatusInternalServerError)
 			return
@@ -145,6 +146,7 @@ func UpdateColumn(tm *tenant.Manager, hub *sync.Hub) http.HandlerFunc {
 			return
 		}
 
+		hub.Notify(ctx, tenantID, newVersion)
 		writeJSON(w, http.StatusOK, c)
 	}
 }
@@ -177,7 +179,7 @@ func DeleteColumn(tm *tenant.Manager, hub *sync.Hub) http.HandlerFunc {
 			return
 		}
 
-		newVersion, err := hub.Publish(ctx, tenantID)
+		newVersion, err := hub.NextVersion(ctx, tenantID)
 		if err != nil {
 			http.Error(w, `{"error":"redis error"}`, http.StatusInternalServerError)
 			return
@@ -193,6 +195,7 @@ func DeleteColumn(tm *tenant.Manager, hub *sync.Hub) http.HandlerFunc {
 			return
 		}
 
+		hub.Notify(ctx, tenantID, newVersion)
 		writeJSON(w, http.StatusOK, map[string]string{"deleted": colID})
 	}
 }

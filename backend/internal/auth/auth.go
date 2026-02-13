@@ -11,7 +11,10 @@ import (
 
 type contextKey string
 
-const TenantKey contextKey = "tenant_id"
+const (
+	TenantKey contextKey = "tenant_id"
+	UserKey   contextKey = "user_id"
+)
 
 // Auth handles JWT creation and verification entirely in-memory.
 type Auth struct {
@@ -25,14 +28,16 @@ func New(secret []byte) *Auth {
 // Claims embedded in every token.
 type Claims struct {
 	TenantID string `json:"tid"`
+	UserID   string `json:"uid"`
 	jwt.RegisteredClaims
 }
 
-// Issue creates a signed JWT for a given tenant.
-func (a *Auth) Issue(tenantID string, ttl time.Duration) (string, error) {
+// Issue creates a signed JWT for a given tenant and user.
+func (a *Auth) Issue(tenantID, userID string, ttl time.Duration) (string, error) {
 	now := time.Now()
 	claims := Claims{
 		TenantID: tenantID,
+		UserID:   userID,
 		RegisteredClaims: jwt.RegisteredClaims{
 			IssuedAt:  jwt.NewNumericDate(now),
 			ExpiresAt: jwt.NewNumericDate(now.Add(ttl)),
@@ -54,7 +59,7 @@ func (a *Auth) Verify(tokenStr string) (*Claims, error) {
 }
 
 // Middleware extracts the JWT from the Authorization header, verifies it,
-// and injects tenant_id into context. No DB lookups.
+// and injects tenant_id + user_id into context. No DB lookups.
 // Public paths under /api/auth/ are passed through without token checks.
 func (a *Auth) Middleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -76,6 +81,7 @@ func (a *Auth) Middleware(next http.Handler) http.Handler {
 			return
 		}
 		ctx := context.WithValue(r.Context(), TenantKey, claims.TenantID)
+		ctx = context.WithValue(ctx, UserKey, claims.UserID)
 		next.ServeHTTP(w, r.WithContext(ctx))
 	})
 }
@@ -83,5 +89,11 @@ func (a *Auth) Middleware(next http.Handler) http.Handler {
 // TenantFromCtx extracts the tenant ID from context.
 func TenantFromCtx(ctx context.Context) string {
 	v, _ := ctx.Value(TenantKey).(string)
+	return v
+}
+
+// UserFromCtx extracts the user ID from context.
+func UserFromCtx(ctx context.Context) string {
+	v, _ := ctx.Value(UserKey).(string)
 	return v
 }

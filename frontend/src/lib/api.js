@@ -33,6 +33,7 @@ export const api = {
 
   // Domain (token required)
   createProject: (name) => request('POST', '/api/projects', { name }),
+  deleteProject: (id) => request('DELETE', `/api/projects/${id}`),
   createCard: (data) => request('POST', '/api/kanban/cards', data),
   updateCard: (id, data) => request('PUT', `/api/kanban/cards/${id}`, data),
   createProduct: (data) => request('POST', '/api/products', data),

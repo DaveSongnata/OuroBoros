@@ -159,6 +159,21 @@ export default function KanbanBoard() {
     }
   }
 
+  async function handleDeleteProject() {
+    if (!currentProject) return;
+    const proj = projects.find(p => p.id === currentProject);
+    if (!confirm(`Delete project "${proj?.name || currentProject}"? All columns, cards and orders will be removed.`)) return;
+    try {
+      await api.deleteProject(currentProject);
+      setCurrentProject(null);
+      setColumns([]);
+      setCards([]);
+      loadProjects();
+    } catch (err) {
+      console.error('Failed to delete project:', err);
+    }
+  }
+
   async function handleDeleteColumn(colId) {
     try {
       await api.deleteColumn(colId);
@@ -220,6 +235,14 @@ export default function KanbanBoard() {
             <FolderPlus size={14} /> Project
           </button>
         </form>
+        {currentProject && (
+          <button
+            onClick={handleDeleteProject}
+            className="flex items-center gap-1.5 rounded-lg border border-gray-700 px-2.5 py-1.5 text-xs text-gray-500 hover:border-red-500 hover:text-red-400"
+          >
+            <Trash2 size={12} /> Delete
+          </button>
+        )}
       </div>
 
       {!currentProject ? (

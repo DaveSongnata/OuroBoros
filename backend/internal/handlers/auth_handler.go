@@ -60,7 +60,7 @@ func Register(a *auth.Auth, sdb *auth.SystemDB) http.HandlerFunc {
 			return
 		}
 
-		token, err := a.Issue(user.TenantID, 24*time.Hour)
+		token, err := a.Issue(user.TenantID, user.ID, 24*time.Hour)
 		if err != nil {
 			http.Error(w, `{"error":"token generation failed"}`, http.StatusInternalServerError)
 			return
@@ -98,7 +98,7 @@ func Login(a *auth.Auth, sdb *auth.SystemDB) http.HandlerFunc {
 			return
 		}
 
-		token, err := a.Issue(user.TenantID, 24*time.Hour)
+		token, err := a.Issue(user.TenantID, user.ID, 24*time.Hour)
 		if err != nil {
 			http.Error(w, `{"error":"token generation failed"}`, http.StatusInternalServerError)
 			return
