@@ -1,4 +1,4 @@
-.PHONY: dev build run clean docker-up docker-down stop test fmt
+.PHONY: dev build run clean docker-up docker-down stop test fmt seed
 
 # Development: start Redis in Docker, then run Go backend
 dev:
@@ -38,6 +38,12 @@ clean:
 # Run tests
 test:
 	cd backend && go test ./...
+
+# Seed 30k records for stress testing (requires Redis running)
+seed:
+	docker compose up -d redis
+	@until docker compose exec redis valkey-cli ping 2>/dev/null | grep -q PONG; do sleep 0.5; done
+	cd backend && go run ./cmd/seed
 
 # Format code
 fmt:

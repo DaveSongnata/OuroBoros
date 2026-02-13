@@ -16,11 +16,12 @@ type productDTO struct {
 }
 
 type orderDTO struct {
-	UUID    string    `json:"uuid"`
-	ShortID string    `json:"short_id"`
-	CardID  *string   `json:"card_id"`
-	Total   float64   `json:"total"`
-	Items   []itemDTO `json:"items,omitempty"`
+	UUID      string    `json:"uuid"`
+	ShortID   string    `json:"short_id"`
+	CardID    *string   `json:"card_id"`
+	ProjectID *string   `json:"project_id"`
+	Total     float64   `json:"total"`
+	Items     []itemDTO `json:"items,omitempty"`
 }
 
 type itemDTO struct {
@@ -130,8 +131,9 @@ func CreateOrder(tm *tenant.Manager, hub *sync.Hub) http.HandlerFunc {
 		}
 
 		var req struct {
-			CardID *string `json:"card_id"`
-			Items  []struct {
+			CardID    *string `json:"card_id"`
+			ProjectID *string `json:"project_id"`
+			Items     []struct {
 				ProductID string `json:"product_id"`
 				Qty       int    `json:"qty"`
 			} `json:"items"`
@@ -141,6 +143,7 @@ func CreateOrder(tm *tenant.Manager, hub *sync.Hub) http.HandlerFunc {
 			return
 		}
 
+		// If card_id provided, check approval status — reject if card is rejected
 		ctx := r.Context()
 		tx, err := db.BeginTx(ctx, nil)
 		if err != nil {
@@ -149,32 +152,42 @@ func CreateOrder(tm *tenant.Manager, hub *sync.Hub) http.HandlerFunc {
 		}
 		defer tx.Rollback()
 
+		if req.CardID != nil && *req.CardID != "" {
+			var status string
+			err := tx.QueryRowContext(ctx, "SELECT approval_status FROM kanban_cards WHERE id = ?", *req.CardID).Scan(&status)
+			if err != nil {
+				http.Error(w, `{"error":"card not found"}`, http.StatusBadRequest)
+				return
+			}
+			if status == "rejected" {
+				http.Error(w, `{"error":"card is rejected — sales are locked"}`, http.StatusForbidden)
+				return
+			}
+		}
+
 		orderUUID := uuidV7()
 		sid := shortID()
 
-		// Calculate total from products
 		var total float64
 		for _, item := range req.Items {
 			var price float64
 			err := tx.QueryRowContext(ctx, "SELECT price FROM products WHERE id = ?", item.ProductID).Scan(&price)
 			if err != nil {
-				http.Error(w, `{"error":"product not found: `+item.ProductID+`"}`, http.StatusBadRequest)
+				http.Error(w, `{"error":"product not found"}`, http.StatusBadRequest)
 				return
 			}
 			total += price * float64(item.Qty)
 		}
 
-		// Insert order
 		_, err = tx.ExecContext(ctx,
-			"INSERT INTO os_orders (uuid, short_id, card_id, total) VALUES (?, ?, ?, ?)",
-			orderUUID, sid, req.CardID, total,
+			"INSERT INTO os_orders (uuid, short_id, card_id, project_id, total) VALUES (?, ?, ?, ?, ?)",
+			orderUUID, sid, req.CardID, req.ProjectID, total,
 		)
 		if err != nil {
 			http.Error(w, `{"error":"insert order failed"}`, http.StatusInternalServerError)
 			return
 		}
 
-		// Insert items
 		var items []itemDTO
 		for _, item := range req.Items {
 			var it itemDTO
@@ -190,11 +203,12 @@ func CreateOrder(tm *tenant.Manager, hub *sync.Hub) http.HandlerFunc {
 		}
 
 		order := orderDTO{
-			UUID:    orderUUID,
-			ShortID: sid,
-			CardID:  req.CardID,
-			Total:   total,
-			Items:   items,
+			UUID:      orderUUID,
+			ShortID:   sid,
+			CardID:    req.CardID,
+			ProjectID: req.ProjectID,
+			Total:     total,
+			Items:     items,
 		}
 
 		newVersion, err := hub.Publish(ctx, tenantID)
@@ -227,9 +241,16 @@ func ListOrders(tm *tenant.Manager) http.HandlerFunc {
 			return
 		}
 
-		rows, err := db.QueryContext(r.Context(),
-			"SELECT uuid, short_id, card_id, total FROM os_orders ORDER BY created_at DESC",
-		)
+		cardID := r.URL.Query().Get("card_id")
+		query := "SELECT uuid, short_id, card_id, project_id, total FROM os_orders"
+		var args []any
+		if cardID != "" {
+			query += " WHERE card_id = ?"
+			args = append(args, cardID)
+		}
+		query += " ORDER BY created_at DESC"
+
+		rows, err := db.QueryContext(r.Context(), query, args...)
 		if err != nil {
 			http.Error(w, `{"error":"query failed"}`, http.StatusInternalServerError)
 			return
@@ -239,7 +260,7 @@ func ListOrders(tm *tenant.Manager) http.HandlerFunc {
 		var orders []orderDTO
 		for rows.Next() {
 			var o orderDTO
-			rows.Scan(&o.UUID, &o.ShortID, &o.CardID, &o.Total)
+			rows.Scan(&o.UUID, &o.ShortID, &o.CardID, &o.ProjectID, &o.Total)
 			orders = append(orders, o)
 		}
 		if orders == nil {

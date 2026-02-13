@@ -3,6 +3,12 @@ data/
 *.db-shm
 *.db-wal
 /backend/bin/
+/backend/api
+/backend/node_modules/
+/backend/package.json
+/backend/package-lock.json
 /frontend/node_modules/
 /frontend/dist/
+/frontend/README.md
 .env
+.vscode/

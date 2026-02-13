@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"path/filepath"
 	"syscall"
 	"time"
 
@@ -25,6 +26,12 @@ func main() {
 	// Ensure data directory exists
 	if err := os.MkdirAll(dataDir, 0o755); err != nil {
 		log.Fatalf("failed to create data dir: %v", err)
+	}
+
+	// Central system database (users, auth — NOT per-tenant)
+	sdb, err := auth.OpenSystemDB(filepath.Join(dataDir, "system.db"))
+	if err != nil {
+		log.Fatalf("failed to open system db: %v", err)
 	}
 
 	// Redis client with retry
@@ -55,8 +62,9 @@ func main() {
 	// Router
 	mux := http.NewServeMux()
 
-	// Public routes
-	mux.HandleFunc("POST /api/auth/token", handlers.IssueToken(jwtAuth))
+	// Public routes (no auth required)
+	mux.HandleFunc("POST /api/auth/register", handlers.Register(jwtAuth, sdb))
+	mux.HandleFunc("POST /api/auth/login", handlers.Login(jwtAuth, sdb))
 
 	// Protected API routes
 	api := http.NewServeMux()
@@ -70,6 +78,7 @@ func main() {
 	api.HandleFunc("GET /api/products", handlers.ListProducts(tm))
 	api.HandleFunc("POST /api/orders", handlers.CreateOrder(tm, hub))
 	api.HandleFunc("GET /api/orders", handlers.ListOrders(tm))
+	api.HandleFunc("GET /api/users", handlers.ListTenantUsers(sdb))
 
 	// SSE endpoint (protected)
 	api.HandleFunc("GET /sse/events", handlers.SSEHandler(hub))
@@ -102,6 +111,7 @@ func main() {
 	defer cancel()
 	srv.Shutdown(shutdownCtx)
 	tm.CloseAll()
+	sdb.Close()
 	rdb.Close()
 	log.Println("goodbye")
 }

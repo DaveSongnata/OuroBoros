@@ -10,24 +10,12 @@ export function getToken() {
   return token;
 }
 
-export async function fetchToken(tenantId) {
-  const res = await fetch(`${API_BASE}/api/auth/token`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ tenant_id: tenantId }),
-  });
-  if (!res.ok) throw new Error('Failed to get token');
-  const data = await res.json();
-  token = data.token;
-  return data.token;
-}
-
 async function request(method, path, body) {
   const res = await fetch(`${API_BASE}${path}`, {
     method,
     headers: {
       'Content-Type': 'application/json',
-      Authorization: `Bearer ${token}`,
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
     },
     body: body ? JSON.stringify(body) : undefined,
   });
@@ -39,9 +27,15 @@ async function request(method, path, body) {
 }
 
 export const api = {
+  // Auth (no token needed)
+  register: (email, password, tenant_id) => request('POST', '/api/auth/register', { email, password, tenant_id }),
+  login: (email, password) => request('POST', '/api/auth/login', { email, password }),
+
+  // Domain (token required)
   createProject: (name) => request('POST', '/api/projects', { name }),
   createCard: (data) => request('POST', '/api/kanban/cards', data),
   updateCard: (id, data) => request('PUT', `/api/kanban/cards/${id}`, data),
   createProduct: (data) => request('POST', '/api/products', data),
   createOrder: (data) => request('POST', '/api/orders', data),
+  listUsers: () => request('GET', '/api/users'),
 };
